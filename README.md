@@ -28,7 +28,6 @@ Right now the focus is on bulding a command line tool that follow these core pri
 * **Simple**: simple to use with a straifghtforward implementation
 * **Familiar**: you should feel at home if you are acquainted with SQL and Python
 * **Light**: small memory footprint that allows you to process large data that fit into your machine
-* **Fun**: it should be fun using it and even funnier contributing to it
 * **Useful**: it should make your life easier, filling a gap in the eco-system
 
 ## Syntax
@@ -47,16 +46,17 @@ In SpyQL:
 * there is guarantee that the order of the output rows is the same as in the input 
 * the `AS` keyword must preceed a column alias definition (it is not optional as in SQL)
 * you can always access the nth column by using the default column names `colN` (e.g. `col1` for the first column)
-* currenty onlt a small subset of SQL is supported, namely `SELECT` statments without: subqueries, joins, set operations, etc (check the [Sintax](#syntax) section)
+* currenty only a small subset of SQL is supported, namely `SELECT` statments without: subqueries, joins, set operations, etc (check the [Sintax](#syntax) section)
 * sub-queries are achieved by piping (see the [Examples](#examples)
  section)
-* expressions are pure Python:
+* expressions are pure Python,:
 | SQL | SpySQL |
 | ------------- | ------------- |
 | x = y | x == y |
 | x LIKE y | like(x, y)  |
 | x IS NULL  | x == None  |
 | x BETWEEN a AND b  |  a <= x <= b | 
+| CAST(x AS INTEGER) | int(x) |
 
 
 ## Examples
@@ -117,19 +117,16 @@ feedgnuplot --lines --points --exit
 
 ## TODO list before official release
 
-- [ ] AS table to identiby relation (e.g. when writting to SQL)
+- [ ] AS table to identify relation (e.g. when writting to SQL)
 - [ ] reading NULL/None + tests
 - [ ] writing NULL/None + tests
-- [ ] create a variable for each JSON field: requires reading a sample, parsing it, store parsed objs, and collecting all fields to a Set
-- [ ] ORDER BY (in memory for now)
 - [ ] limit the scope of variables when evaluating (https://stackoverflow.com/questions/2220699/whats-the-difference-between-eval-exec-and-compile)
-- [ ] `similar` function
+- [ ] RE match function
 - [ ] `like` function
 - [ ] go through SQL opertators/keywords, create functions and include them in tests
 - [ ] options for CSVs and alike (in)
 - [ ] options for CSVs and alike (out)
 - [ ] add option to disable buffering (-u) by calling flush every write
-- [ ] write/load to/from py (write lists, or csv with header with python data types)
 - [ ] infer data types on csv
 - [ ] friendly exception reporting and errors messages
 - [ ] clean-up repo: https://docs.python-guide.org/writing/structure/
@@ -141,13 +138,24 @@ feedgnuplot --lines --points --exit
    --quiet -q, --verbose -v
 - [ ] command line help   
 - [ ] 90% code coverage
-- [ ] add badges to Readme.md: https://dev.to/ananto30/how-to-add-some-badges-in-your-git-readme-github-gitlab-etc-3ne9
+
 #### Tentative
+- [ ] write/load to/from py (write lists, or csv with header with python data types)
+- [ ] create a variable for each JSON field: requires reading a sample, parsing it, store parsed objs, and collecting all fields to a Set
+OR
+create a syntax to simplify reading json: e.g. `json$vehicle_id, json$data$start_ts` VS. `json['vehicle_id'], json['data']['start_ts']`
+- [ ] ORDER BY (in memory for now)
+- [ ] add badges to Readme.md: https://dev.to/ananto30/how-to-add-some-badges-in-your-git-readme-github-gitlab-etc-3ne9
+- [ ] Better handling of dates constants. e.g. instead of `datetime.datetime(2020,11,10,19,55,03)` use `$2020-11-10 19:55:04$` or `to_datetime('2020-11-10 19:55:04')`
+
+
+#### Next
+
 - [ ] `GROUP BY` and aggregation functions (in memory for now)
 - [ ] `SELECT DISTINCT`
 
 
-###Know bugs
+### Know bugs
 - [ ] CSV reader does not work well when input is a single row
 - [ ] header from CSV is not reaching the writer 
 
