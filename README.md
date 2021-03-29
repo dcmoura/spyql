@@ -1,7 +1,8 @@
 # SpyQL: SQL with Python in the midle
 
-**ATTENTION**: SpySQL is in its early days and has not been release yet. It is not yet ready for final users. Feel free to reach me out if you would like to contribute (take a look at the TODO list at then end)!
+> **ATTENTION**: SpySQL is in its early days and has not been release yet. It is not yet ready for final users. Feel free to reach me out if you would like to contribute (take a look at the TODO list at then end)!
 
+## Concept
 SpyQL is as query language that combines:
 * the simplicity and structure of SQL
 * with the power and readability of Python 
@@ -49,7 +50,8 @@ In SpyQL:
 * currenty only a small subset of SQL is supported, namely `SELECT` statments without: subqueries, joins, set operations, etc (check the [Sintax](#syntax) section)
 * sub-queries are achieved by piping (see the [Examples](#examples)
  section)
-* expressions are pure Python,:
+* expressions are pure Python:
+
 | SQL | SpySQL |
 | ------------- | ------------- |
 | x = y | x == y |
@@ -155,7 +157,7 @@ create a syntax to simplify reading json: e.g. `json$vehicle_id, json$data$start
 - [ ] `SELECT DISTINCT`
 
 
-### Know bugs
+### Known bugs
 - [ ] CSV reader does not work well when input is a single row
 - [ ] header from CSV is not reaching the writer 
 
