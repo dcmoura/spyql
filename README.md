@@ -60,6 +60,10 @@ In SpyQL:
 | x BETWEEN a AND b  |  a <= x <= b | 
 | CAST(x AS INTEGER) | int(x) |
 
+## Notable differences to Python
+We added additional syntax for making querying easier: 
+* Easy access of elements in JSONs and dicts: `json->hello->'planet earth'` translates into `json['hello']['planet earth']`
+
 
 ## Examples
 
