@@ -22,6 +22,7 @@ import string
 
 
 query_struct_keywords = ['select', 'from', 'explode', 'where', 'limit', 'offset', 'to']
+STRING_PLACEHOLDER_LEN = 32
 
 #makes sure that queries start with a space (required for parse_structure)
 def clean_query(q):
@@ -48,7 +49,7 @@ def get_query_strings(query):
     strings = {}
     for i in range(len(spans)-1):
         if i>0:            
-            sid = ''.join(random.choice(string.ascii_letters) for _ in range(32) )
+            sid = ''.join(random.choice(string.ascii_letters) for _ in range(STRING_PLACEHOLDER_LEN))
             sid = f"_{sid}_"
             res.append(sid)
             strings[sid] = query[spans[i][0]+1:spans[i][1]-1] 
@@ -86,7 +87,10 @@ def parse_structure(q):
 
     return d
 
-# replaces sql syntax by python syntax
+def string_placeholder_re():
+    return r'\_\w{%d}\_'%(STRING_PLACEHOLDER_LEN)
+
+# replaces sql/custom syntax by python syntax
 def pythonize(s):
     #todo: check for special SQL stuff such as in, is, like    
     #s = re.compile(r"([^=<>])={1}([^=])").sub(r"\1==\2", s)
@@ -97,7 +101,7 @@ def pythonize(s):
 # replace string placeholders by their actual strings
 def put_strings_back(text, strings, quote=True):
     quote_char = '"' if quote else ''
-    sids = {m.group(0) for m in re.finditer(r'\_\w{32}\_', text)}    
+    sids = {m.group(0) for m in re.finditer(string_placeholder_re(), text)}
     for sid in sids:
         text = text.replace(sid, f'{quote_char}{strings[sid]}{quote_char}')
     return text    
