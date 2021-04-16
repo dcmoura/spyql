@@ -154,6 +154,8 @@ class Processor:
         its_list = self.get_input_iterators()
         
         where = self.prs['where']
+        if (where):
+            where = compile(where, '', 'eval') 
 
         logging.info("-- RESULT --")        
         
