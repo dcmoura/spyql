@@ -96,6 +96,16 @@ def pythonize(s):
     #s = re.compile(r"([^=<>])={1}([^=])").sub(r"\1==\2", s)
     #DECISION: expressions are PURE python code :-)
     #eventual exceptions: "IS NULL" by "== None" and "IS NOT NULL ..."
+
+    #easy shortcut for navigating through dics (of dics)
+    #e.g.   `json->hello->'planet hearth'` converts into
+    #       `json['hello']['planet hearth']`
+
+    # first replace quoted keys (they do not need quotes)
+    s = re.compile(r"->(%s)"%(string_placeholder_re())).sub(r"[\1]", s)
+    #then replace unquoted keys (they need quotes)
+    s = re.compile(r"->([^\d\W]\w*)").sub(r"['\1']", s)
+
     return s
 
 # replace string placeholders by their actual strings
