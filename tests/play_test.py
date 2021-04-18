@@ -111,6 +111,10 @@ def test_myoutput(capsys):
     # complex expressions with commas and different types of brackets  
     eq_test_1row("SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc, 2 AS two FROM [1]", {"calc": 30, "two": 2})
     
+    ## custom syntax
+    # easy access to dic fields
+    eq_test_1row("SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour, col1->hello->world.upper() AS caps FROM [[{'three': 3, 'twenty one': 21, 'hello':{'world': 'hello world'}}]]", {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"})
+
     # TODO: 
     # explode
     # invalid sentences
