@@ -13,50 +13,20 @@
 #  
 
 from spyql.processor import Processor
+from spyql.quotes_handler import QuotesHandler
 import sys
 import re
 
 import logging
-import random
-import string
 
 
 query_struct_keywords = ['select', 'from', 'explode', 'where', 'limit', 'offset', 'to']
-STRING_PLACEHOLDER_LEN = 32
 
 #makes sure that queries start with a space (required for parse_structure)
 def clean_query(q):
     q = " " + q.strip()
     return q
 
-# replaces quoted strings by placeholders to make parsing easier
-# also returns dictionary of placeholders and the strings they hold
-def get_query_strings(query):    
-    res = []
-    quotes = [
-        r"\'(\'\'|\\.|[^'])*\'",
-        r'\"(\"\"|\\.|[^"])*\"'#,
-    #    r'\`(\`\`|\\.|[^`])*\`'
-    ]
-    
-    spans = [(0,0)]
-    for quote in quotes:
-        spans.extend([m.span() for m in re.finditer(quote, query)])
-    spans.append((len(query), 0))
-    
-    #print(spans)
-    
-    strings = {}
-    for i in range(len(spans)-1):
-        if i>0:            
-            sid = ''.join(random.choice(string.ascii_letters) for _ in range(STRING_PLACEHOLDER_LEN))
-            sid = f"_{sid}_"
-            res.append(sid)
-            strings[sid] = query[spans[i][0]+1:spans[i][1]-1] 
-            
-        res.append(query[spans[i][1]:spans[i+1][0]])
-        
-    return ("".join(res), strings)
           
 #parse the supported keywords, which must follow a given order
 def parse_structure(q):    
@@ -87,9 +57,6 @@ def parse_structure(q):
 
     return d
 
-def string_placeholder_re():
-    return r'\_\w{%d}\_'%(STRING_PLACEHOLDER_LEN)
-
 # replaces sql/custom syntax by python syntax
 def pythonize(s):
     #todo: check for special SQL stuff such as in, is, like    
@@ -102,19 +69,11 @@ def pythonize(s):
     #       `json['hello']['planet hearth']`
 
     # first replace quoted keys (they do not need quotes)
-    s = re.compile(r"->(%s)"%(string_placeholder_re())).sub(r"[\1]", s)
+    s = re.compile(r"->(%s)"%(QuotesHandler.string_placeholder_re())).sub(r"[\1]", s)
     #then replace unquoted keys (they need quotes)
     s = re.compile(r"->([^\d\W]\w*)").sub(r"['\1']", s)
 
     return s
-
-# replace string placeholders by their actual strings
-def put_strings_back(text, strings, quote=True):
-    quote_char = '"' if quote else ''
-    sids = {m.group(0) for m in re.finditer(string_placeholder_re(), text)}
-    for sid in sids:
-        text = text.replace(sid, f'{quote_char}{strings[sid]}{quote_char}')
-    return text    
         
 def custom_sel_split(s):
     sin = list(s)
@@ -167,7 +126,7 @@ def parse_select(sel, strings):
             c = "_values"
             name = '*'
         else:            
-            name = put_strings_back(name, strings, quote=False)
+            name = strings.put_strings_back(name, quote=False)
             c = f"[{make_expr_ready(c, strings)}]" 
         
         #new_sel[name] = c
@@ -175,12 +134,16 @@ def parse_select(sel, strings):
     
     return new_sel
 
-def make_expr_ready(expr, strings):
-    return put_strings_back(pythonize(expr), strings).strip()
+def make_expr_ready(expr, strings):    
+    return strings.put_strings_back(pythonize(expr)).strip()
+    #return pythonize(expr).strip()
 
 # parse entry point
 def parse(query):
-    (query, strings) = get_query_strings(query)
+    strings = QuotesHandler()
+    query = strings.extract_strings(query)
+
+   # (query, strings) = get_query_strings(query)
     #print(query)
     #print(strings)
     prs = parse_structure(query)
@@ -257,7 +220,7 @@ def print_select_syntax():
 
 def main():
     #sys.tracebacklimit = 0 # no exception traces
-    #logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
     #logging.basicConfig(level=logging.DEBUG)
 
     #default query for simple testing:
@@ -275,3 +238,12 @@ def main():
 
 if __name__ == "__main__":    
     main()
+
+    # import cProfile    
+    # import pstats
+    # from pstats import SortKey
+    # cProfile.run('main()', 'spyql.stats')
+    # p = pstats.Stats('spyql.stats').strip_dirs()
+
+    # p.sort_stats(SortKey.CUMULATIVE).dump_stats('spyql.stats.cum')
+    # p.sort_stats(SortKey.TIME).dump_stats('spyql.stats.time')
