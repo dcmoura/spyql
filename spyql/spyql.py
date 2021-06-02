@@ -123,11 +123,11 @@ def parse_select(sel, strings):
             c = c[:(sas.span()[0])]
 
         if c.strip() == '*':
-            c = "_values"
+            c = "*"
             name = '*'
         else:            
             name = strings.put_strings_back(name, quote=False)
-            c = f"[{make_expr_ready(c, strings)}]" 
+            c = f"{make_expr_ready(c, strings)}" 
         
         #new_sel[name] = c
         new_sel.append((name,c))
@@ -219,7 +219,7 @@ def print_select_syntax():
 
 def main():
     #sys.tracebacklimit = 0 # no exception traces
-    logging.basicConfig(level=logging.INFO)
+    #logging.basicConfig(level=logging.INFO)
     #logging.basicConfig(level=logging.DEBUG)
 
     #default query for simple testing:

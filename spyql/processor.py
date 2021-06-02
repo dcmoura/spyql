@@ -117,13 +117,16 @@ class Processor:
     
     # replace identifiers (column names) in sql expressions by references to `_values`
     # and put (quoted) strings back
-    def prepare_expression(self, expr):                        
+    def prepare_expression(self, expr):
+        if expr == '*':
+            return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
+
         for id, idx in self.colnames2idx.items():
             pattern = rf"\b({id})\b"
             replacement = f"_values[{idx}]"
             expr = re.compile(pattern).sub(replacement, expr)
 
-        return self.strings.put_strings_back(expr)
+        return [self.strings.put_strings_back(expr)]
 
 
     # main
@@ -162,6 +165,7 @@ class Processor:
         its_list = self.get_input_iterators()
         
         where = None
+        explode_its = [None] # 1 element by default (no explosion)
 
         logging.info("-- RESULT --")        
         
@@ -183,15 +187,16 @@ class Processor:
                     if output_handler.is_done():
                         return # in case of `limit 0`
                 
+                    # TODO: move to function(s)
                     # compiles expressions for calculating outputs
                     cmds = [self.prepare_expression(c[1]) for c in self.prs['select']]  #todo: rename cmds to out_expressions        
-                    cmds = compile('[' + ','.join(cmds) + ']', '<select>', 'eval')
+                    cmds = [item for sublist in cmds for item in sublist] #flatten (because of '*')                    
+                    cmds = compile('[' + ','.join(cmds) + ']', '<select>', 'eval')                    
                     where = self.prs['where']
                     if (where):
-                        where = compile(self.prepare_expression(where), '<where>', 'eval') 
-
-                    
-                explode_its = [None] # 1 element by default (no explosion)
+                        #TODO: check if * is not used in where... or pass argument
+                        where = compile(self.prepare_expression(where)[0], '<where>', 'eval') 
+                
                 if explode_path:
                     explode_its = eval(explode_it_cmd)
                                 
@@ -207,11 +212,12 @@ class Processor:
                         # input line is eligeble 
                         
                         # calculate outputs
-                        _res = [item for sublist in eval(cmds,{},vars) for item in sublist]                        
+                        _res = eval(cmds,{},vars)
 
                         output_handler.handle_result(_res) #deal with output
                         if output_handler.is_done():
                             return #e.g. when reached limit
+
 
 class PythonExprProcessor(Processor):         
     def __init__(self, prs, strings):
