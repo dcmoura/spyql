@@ -31,21 +31,21 @@ import pytz
 class Processor: 
         
     @staticmethod
-    def make_processor(prs):
+    def make_processor(prs, strings):
         processor_name = prs['from']
         if not processor_name:
-            return Processor(prs)
+            return Processor(prs, strings)
 
         processor_name = processor_name.upper() 
 
         if processor_name == 'JSON':
-            return JSONProcessor(prs)
+            return JSONProcessor(prs, strings)
         if processor_name == 'CSV': 
-            return CSVProcessor(prs)
+            return CSVProcessor(prs, strings)
         if processor_name == 'TEXT': #single col
-            return TextProcessor(prs)
+            return TextProcessor(prs, strings)
 
-        return PythonExprProcessor(prs)
+        return PythonExprProcessor(prs, strings)
         # if not reader_name or reader_name == 'CSV':
         #     return CSVWriter(inputfile, options)
         
@@ -57,10 +57,11 @@ class Processor:
 
 
 
-    def __init__(self, prs):
+    def __init__(self, prs, strings):
         self.prs = prs #parsed query
         self.row_instantiation_script = None  
         self.input_col_names = []
+        self.strings = strings
 
     # True after header, metadata, etc in input file
     def reading_data(self):
@@ -146,7 +147,7 @@ class Processor:
         out_cols_names = [c[0] for c in self.prs['select']]
 
         # compiles expressions for calculating outputs
-        cmds = [c[1] for c in self.prs['select']]  #todo: rename cmds to out_expressions        
+        cmds = [self.strings.put_strings_back(c[1]) for c in self.prs['select']]  #todo: rename cmds to out_expressions        
         cmds = compile('[' + ','.join(cmds) + ']', '', 'eval')
 
         explode_it_cmd = None
@@ -164,7 +165,7 @@ class Processor:
         
         where = self.prs['where']
         if (where):
-            where = compile(where, '', 'eval') 
+            where = compile(self.strings.put_strings_back(where), '', 'eval') 
 
         logging.info("-- RESULT --")        
         
@@ -210,16 +211,16 @@ class Processor:
                             return #e.g. when reached limit
 
 class PythonExprProcessor(Processor):         
-    def __init__(self, prs):
-        super().__init__(prs)
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
 
     # input is a Python expression
     def get_input_iterators(self):
-        return [eval(self.prs['from'])]
+        return [eval(self.strings.put_strings_back(self.prs['from']))]
 
 class TextProcessor(Processor):
-    def __init__(self, prs):
-        super().__init__(prs)
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
 
     # reads a text row as a row with 1 column
     def get_input_iterators(self):
@@ -232,8 +233,8 @@ class TextProcessor(Processor):
 
     
 class JSONProcessor(Processor):
-    def __init__(self, prs):
-        super().__init__(prs)
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
 
     def get_input_iterators(self):
         return [sys.stdin] #to do: suport files
@@ -252,8 +253,8 @@ class JSONProcessor(Processor):
 
 ## CSV
 class CSVProcessor(Processor):
-    def __init__(self, prs):
-        super().__init__(prs)
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
         self.has_header = False
 
     def get_input_iterators(self):

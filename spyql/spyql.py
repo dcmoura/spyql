@@ -135,8 +135,7 @@ def parse_select(sel, strings):
     return new_sel
 
 def make_expr_ready(expr, strings):    
-    return strings.put_strings_back(pythonize(expr)).strip()
-    #return pythonize(expr).strip()
+    return pythonize(expr).strip()
 
 # parse entry point
 def parse(query):
@@ -197,7 +196,7 @@ def run(query):
         
     logging.info(prs)
 
-    processor = Processor.make_processor(prs)
+    processor = Processor.make_processor(prs, strings)
 
     processor.go()
 
