@@ -1,3 +1,11 @@
+# TODO: optimizations
+# [x]: single eval
+# [ ]: try to eliminate nested list
+# [ ]: try to eliminate wrap row 
+# [ ]: try to eliminate is instance of
+# [ ]: try to eliminate execute (replace vars - needs heads + keywords)
+
+
 import csv
 import json as jsonlib
 import sys
@@ -17,8 +25,9 @@ import pytz
 
 # extra... need to find some way to add user imports...
 # e.g. ~/.spyql.py file with python code to run at startup
-import requests
- 
+
+
+
 class Processor: 
         
     @staticmethod
@@ -63,7 +72,7 @@ class Processor:
 
     # Makes sure a row is always a list of columns (even when there is a single input col)
     def wrap_row(self, row):
-        if not isinstance(row, Iterable):
+        if not isinstance(row, Iterable): #TO DO: change this takes a lot
             return [row]            
         return row
 
@@ -138,7 +147,7 @@ class Processor:
 
         # compiles expressions for calculating outputs
         cmds = [c[1] for c in self.prs['select']]  #todo: rename cmds to out_expressions        
-        cmds = [compile(cmd, '', 'eval') for cmd in cmds]
+        cmds = compile('[' + ','.join(cmds) + ']', '', 'eval')
 
         explode_it_cmd = None
         explode_inst_cmd = None
@@ -189,13 +198,12 @@ class Processor:
 
                     row_number = row_number + 1
                     
-                    if not where or eval(where): #filter
+                    if not where or eval(where): #filter (opt: eventually could be done before exploding)
                         # input line is eligeble 
                         the_globals = globals()
                         the_locals = locals() # to do: filter out internal vars
                         # calculate outputs
-                        _res = [eval(cmd, the_globals, the_locals) for cmd in cmds]
-                        _res = [item for sublist in _res for item in sublist] #flatten
+                        _res = [item for sublist in eval(cmds, the_globals, the_locals) for item in sublist]                        
 
                         output_handler.handle_result(_res) #deal with output
                         if output_handler.is_done():
