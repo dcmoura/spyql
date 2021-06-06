@@ -51,10 +51,9 @@ class Processor:
 
     def __init__(self, prs, strings):
         self.prs = prs #parsed query
-        self.strings = strings
-        # by default, a row does not need to be wrapped (only single cols need)
-        self.input_col_names = []
-        self.colnames2idx = {}
+        self.strings = strings #quoted strings
+        self.input_col_names = [] #column names of the input data
+        self.colnames2idx = {} #map from column names to indexes
         
 
     # True after header, metadata, etc in input file
@@ -64,7 +63,6 @@ class Processor:
     # Action for header row (e.g. column name definition)
     def handle_header_row(self, row):
         pass
-
     
     # Action for handling the first row of data 
     def handle_1st_data_row(self, row):
@@ -97,7 +95,6 @@ class Processor:
     # Default column names, e.g. col1 for the first column
     def default_col_name(self, idx):
         return f"col{idx+1}"
-
     
     # replace identifiers (column names) in sql expressions by references to `_values`
     # and put (quoted) strings back
@@ -124,16 +121,13 @@ class Processor:
     def _go(self, output_handler):
         vars = globals() # to do: filter out not useful/internal vars
 
+        cmds = []
         _values = []
         row_number = 0
-        vars_script = None
-        #json = {}
-
+        
         # gets user-defined output cols names (with AS alias)
         out_cols_names = [c[0] for c in self.prs['select']]
-        
-        cmds = []
-        
+
         explode_it_cmd = None
         explode_inst_cmd = None
         explode_path = self.prs['explode']    
@@ -206,6 +200,7 @@ class PythonExprProcessor(Processor):
                 e = [[el] for el in e]
         return e
 
+
 class TextProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
@@ -225,6 +220,7 @@ class JSONProcessor(Processor):
     def get_input_iterator(self):
         #to do: suport files
         return [[jsonlib.loads(line)] for line in sys.stdin]
+
 
 ## CSV
 class CSVProcessor(Processor):

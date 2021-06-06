@@ -238,6 +238,8 @@ def main():
 if __name__ == "__main__":    
     main()
 
+    ## For profiling:
+    #
     # import cProfile    
     # import pstats
     # from pstats import SortKey
@@ -246,3 +248,4 @@ if __name__ == "__main__":
 
     # p.sort_stats(SortKey.CUMULATIVE).dump_stats('spyql.stats.cum')
     # p.sort_stats(SortKey.TIME).dump_stats('spyql.stats.time')
+    
