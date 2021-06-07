@@ -130,7 +130,7 @@ def parse_select(sel, strings):
             c = f"{make_expr_ready(c, strings)}" 
         
         #new_sel[name] = c
-        new_sel.append((name,c))
+        new_sel.append({"name": name, "expr": c})
     
     return new_sel
 
@@ -248,4 +248,3 @@ if __name__ == "__main__":
 
     # p.sort_stats(SortKey.CUMULATIVE).dump_stats('spyql.stats.cum')
     # p.sort_stats(SortKey.TIME).dump_stats('spyql.stats.time')
-    

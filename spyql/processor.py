@@ -121,22 +121,21 @@ class Processor:
     def _go(self, output_handler):
         vars = globals() # to do: filter out not useful/internal vars
 
-        cmds = []
+        select_expr = []
+        where_expr = None
         _values = []
         row_number = 0
+        explode_its = [None] # 1 element by default (no explosion)
         
         # gets user-defined output cols names (with AS alias)
-        out_cols_names = [c[0] for c in self.prs['select']]
+        out_cols_names = [c['name'] for c in self.prs['select']]
 
         explode_it_cmd = None
         explode_inst_cmd = None
         explode_path = self.prs['explode']    
         if (explode_path):
             explode_it_cmd = compile(explode_path, '', 'eval')
-            explode_inst_cmd = compile(f'{explode_path} = explode_it', '', 'exec')            
-        
-        where = None
-        explode_its = [None] # 1 element by default (no explosion)
+            explode_inst_cmd = compile(f'{explode_path} = explode_it', '', 'exec')
 
         logging.info("-- RESULT --")        
 
@@ -156,13 +155,13 @@ class Processor:
             
                 # TODO: move to function(s)
                 # compiles expressions for calculating outputs
-                cmds = [self.prepare_expression(c[1]) for c in self.prs['select']]  #todo: rename cmds to out_expressions        
-                cmds = [item for sublist in cmds for item in sublist] #flatten (because of '*')                    
-                cmds = compile('[' + ','.join(cmds) + ']', '<select>', 'eval')                    
-                where = self.prs['where']                
-                if (where):
+                select_expr = [self.prepare_expression(c['expr']) for c in self.prs['select']] 
+                select_expr = [item for sublist in select_expr for item in sublist] #flatten (because of '*')                    
+                select_expr = compile('[' + ','.join(select_expr) + ']', '<select>', 'eval')                    
+                where_expr = self.prs['where']                
+                if (where_expr):
                     #TODO: check if * is not used in where... or pass argument
-                    where = compile(self.prepare_expression(where)[0], '<where>', 'eval') 
+                    where_expr = compile(self.prepare_expression(where_expr)[0], '<where>', 'eval') 
             
             if explode_path:
                 explode_its = eval(explode_it_cmd)
@@ -175,11 +174,11 @@ class Processor:
 
                 vars["_values"] = _values
 
-                if not where or eval(where,{},vars): #filter (opt: eventually could be done before exploding)
+                if not where_expr or eval(where_expr,{},vars): #filter (opt: eventually could be done before exploding)
                     # input line is eligeble 
                     
                     # calculate outputs
-                    _res = eval(cmds,{},vars)
+                    _res = eval(select_expr,{},vars)
 
                     output_handler.handle_result(_res) #deal with output
                     if output_handler.is_done():
