@@ -195,7 +195,27 @@ def test_casting():
     assert str_(-981) == str(-981)
     assert str_(-1.21e-5) == str(-1.21e-5)
     assert str_(NULL) is NULL
+
+    assert complex_("1.1") == complex("1.1")
+    assert complex_("1.1+2j") == complex("1.1+2j")    
+    assert complex_(1) == complex(1)
+    assert complex_("") is NULL
+    assert complex_("abc") is NULL
+    assert complex_(NULL) is NULL
     
+def test_aux_functions():
+    assert coalesce(1, 2) == 1
+    assert coalesce(NULL, 2) == 2
+    assert ifnull(1, 2) == 1
+    assert ifnull(NULL, 2) == 2
+    assert nullif(1, 1) is NULL
+    assert nullif(1, 2) == 1
+
+def test_misc():    
+    assert null is NULL
+    assert Null is NULL
+    
+
 def test_dict():
     NullSafeDict({})["abc"] is NULL
     NullSafeDict({"abc": None})["abc"] is NULL

@@ -9,8 +9,6 @@
 #  json.loads('{"a":null, "b":1}', object_hook=lambda x: DictNull(x))
 #  replace function calls by null_safe calls
 #  check performance impact!
-#   tests (all bultin funcs!)
-#   coalesce/ifnull/ifnotnull(a, 2*a), NULL if col1 is NULL else xxx, 
 
 
 class NullType:
@@ -148,23 +146,44 @@ class NullType:
 
 #singleton
 NULL = NullType()
+Null = NULL #alias
+null = NULL #alias
 
-#functions that support NULLs
+#functions that support NULLs (and that need to be replaced in the query)
 NULL_SAFE_FUNCS = [
     ('int',     'int_'),
-    ('float',   'float_') ,
-    ('str',     'str_')]
+    ('float',   'float_'),
+    ('str',     'str_'),
+    ('complex', 'complex_'),
+    ]
+
 
 class NullSafeDict(dict):
     def __missing__(self, key):
         return NULL
 
 
+# returns default if val is null otherwise returns val
+def coalesce(val, default):
+    if (val is NULL):
+        return default
+    return val
 
+ifnull = coalesce #alias
+
+# returns NULL if a equals b otherwise returns a
+def nullif(a, b):
+    if a == b:
+        return NULL
+    return a
+
+# returns NULL if any argument equals NULL
 def null_safe_call(fun, *args, **kwargs):    
     if NULL in args or NULL in kwargs.values():
         return NULL    
     return fun(*args, **kwargs)
+
+
 
 def float_(*args, **kwargs):
     try:
@@ -176,6 +195,13 @@ def float_(*args, **kwargs):
 def int_(*args, **kwargs):
     try:
         return null_safe_call(int, *args, **kwargs)
+    except ValueError:
+        #warning?
+        return NULL
+
+def complex_(*args, **kwargs):
+    try:
+        return null_safe_call(complex, *args, **kwargs)
     except ValueError:
         #warning?
         return NULL
