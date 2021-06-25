@@ -10,6 +10,7 @@ from itertools import islice, chain
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
+from spyql.nulltype import *
 
 from datetime import datetime, date, timezone
 import pytz
@@ -72,7 +73,7 @@ class Processor:
         self.colnames2idx.update({self.default_col_name(_i): _i for _i in range(self.n_input_cols)})
         if self.input_col_names:
             #TODO check if len(input_col_names) == self.n_input_cols 
-            self.colnames2idx.update({self.input_col_names[_i]: _i for _i in range(self.n_input_cols)})
+            self.colnames2idx.update({self.input_col_names[_i]: _i for _i in range(self.n_input_cols)})        
      
 
     # Create list of output column names
@@ -213,12 +214,24 @@ class TextProcessor(Processor):
 class JSONProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
-        self.colnames2idx.update({"json": 0}) # first column alias as json
+        self.colnames2idx.update({"json": 0}) # first column alias as json        
 
     # 1 row = 1 json
     def get_input_iterator(self):
         #to do: suport files
-        return [[jsonlib.loads(line)] for line in sys.stdin]
+        #return [[jsonlib.loads(line)] for line in sys.stdin]
+
+        #this might not be the most efficient way of converting None -> NULL
+        #look at: https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
+        return [[
+            jsonlib.loads(
+                line, 
+                object_hook=lambda x: NullSafeDict(x)
+            )] for line in sys.stdin]
+        
+
+
+
 
 
 ## CSV

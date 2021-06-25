@@ -15,7 +15,7 @@ class NullType:
     def __repr__(self):
         return "NULL"
     def __str__(self):
-        return "NULL"
+        return ""
     def __hash__(self):
         return hash("NULL")
     def __bool__(self):
@@ -159,6 +159,16 @@ NULL_SAFE_FUNCS = [
 
 
 class NullSafeDict(dict):
+    __slots__ = () # no __dict__
+        
+    def __init__(self, adic, **kwargs):
+        super().__init__(
+            # converts None -> NULL
+            {k: NULL if v==None else v for k, v in adic.items()},
+            **kwargs
+        )
+
+    # returns NULL when key is not found
     def __missing__(self, key):
         return NULL
 
@@ -182,8 +192,6 @@ def null_safe_call(fun, *args, **kwargs):
     if NULL in args or NULL in kwargs.values():
         return NULL    
     return fun(*args, **kwargs)
-
-
 
 def float_(*args, **kwargs):
     try:
