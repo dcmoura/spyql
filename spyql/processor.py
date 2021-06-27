@@ -174,6 +174,7 @@ class Processor:
                 row_number = row_number + 1
 
                 vars["_values"] = _values
+                vars["row_number"] = row_number
 
                 if not where_expr or eval(where_expr,{},vars): #filter (opt: eventually could be done before exploding)
                     # input line is eligeble 
@@ -208,7 +209,7 @@ class TextProcessor(Processor):
     # reads a text row as a row with 1 column
     def get_input_iterator(self):
         #to do: suport files
-        return [[line.rstrip("\n\r")] for line in sys.stdin]
+        return ([line.rstrip("\n\r")] for line in sys.stdin)
 
     
 class JSONProcessor(Processor):
@@ -223,11 +224,11 @@ class JSONProcessor(Processor):
 
         #this might not be the most efficient way of converting None -> NULL
         #look at: https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
-        return [[
+        return ([
             jsonlib.loads(
                 line, 
                 object_hook=lambda x: NullSafeDict(x)
-            )] for line in sys.stdin]
+            )] for line in sys.stdin)
         
 
 

@@ -4,11 +4,10 @@
 #  when `b` does not exist, and `NULL[x]` returns NULL
 
 
-#TODO: json dumps with diff default
-#TODO: json/csv read None
-#  json.loads('{"a":null, "b":1}', object_hook=lambda x: DictNull(x))
-#  replace function calls by null_safe calls
-#  check performance impact!
+#  TODO replace NULL_SAFE_FUNCS function calls by null_safe calls
+#       USE: colnames2idx but rename it to translations
+#           and convert NULL_SAFE_FUNCS to dict        
+#  TODO check performance impact!
 
 
 class NullType:
