@@ -3,11 +3,7 @@
 # Allows getting items so that `a.get('b', NULL).get('c', NULL)`` returns NULL
 #  when `b` does not exist, and `NULL[x]` returns NULL
 
-
-#  TODO replace NULL_SAFE_FUNCS function calls by null_safe calls
-#       USE: colnames2idx but rename it to translations
-#  TODO check performance impact!
-
+import logging
 
 class NullType:
     def __repr__(self):
@@ -188,27 +184,25 @@ def null_safe_call(fun, *args, **kwargs):
         return NULL    
     return fun(*args, **kwargs)
 
+def number_conversion(fun, *args, **kwargs):
+    try:
+        return null_safe_call(fun, *args, **kwargs)
+    except ValueError:
+        if len(args) > 0 and len(args[0]) > 0:
+            logging.warning(f"Invalid string converting to {fun.__name__}, returning NULL: " + 
+                ','.join(list(args) + [f"{k}={v}" for k, v in kwargs.items()])                
+            )            
+        return NULL
+
 # NULL-safe functions
 def float_(*args, **kwargs):
-    try:
-        return null_safe_call(float, *args, **kwargs)
-    except ValueError:
-        #warning?
-        return NULL
-
+    number_conversion(float, *args, **kwargs)
+    
 def int_(*args, **kwargs):
-    try:
-        return null_safe_call(int, *args, **kwargs)
-    except ValueError:
-        #warning?
-        return NULL
+    number_conversion(int, *args, **kwargs)
 
 def complex_(*args, **kwargs):
-    try:
-        return null_safe_call(complex, *args, **kwargs)
-    except ValueError:
-        #warning?
-        return NULL
+    number_conversion(complex, *args, **kwargs)
 
 def str_(*args, **kwargs):
     return null_safe_call(str, *args, **kwargs)
