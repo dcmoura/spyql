@@ -6,7 +6,6 @@
 
 #  TODO replace NULL_SAFE_FUNCS function calls by null_safe calls
 #       USE: colnames2idx but rename it to translations
-#           and convert NULL_SAFE_FUNCS to dict        
 #  TODO check performance impact!
 
 
@@ -141,21 +140,18 @@ class NullType:
     def get(self, *args, **kwargs):
         return self
 
-
-
 #singleton
 NULL = NullType()
 Null = NULL #alias
 null = NULL #alias
 
 #functions that support NULLs (and that need to be replaced in the query)
-NULL_SAFE_FUNCS = [
-    ('int',     'int_'),
-    ('float',   'float_'),
-    ('str',     'str_'),
-    ('complex', 'complex_'),
-    ]
-
+NULL_SAFE_FUNCS = {
+    'int':      'int_',
+    'float':    'float_',
+    'str':      'str_',
+    'complex':  'complex_'
+}
 
 class NullSafeDict(dict):
     __slots__ = () # no __dict__
@@ -172,7 +168,7 @@ class NullSafeDict(dict):
         return NULL
 
 
-# returns default if val is null otherwise returns val
+# returns default if val is NULL otherwise returns val
 def coalesce(val, default):
     if (val is NULL):
         return default
@@ -192,6 +188,7 @@ def null_safe_call(fun, *args, **kwargs):
         return NULL    
     return fun(*args, **kwargs)
 
+# NULL-safe functions
 def float_(*args, **kwargs):
     try:
         return null_safe_call(float, *args, **kwargs)

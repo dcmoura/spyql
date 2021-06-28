@@ -54,7 +54,7 @@ class Processor:
         self.prs = prs #parsed query
         self.strings = strings #quoted strings
         self.input_col_names = [] #column names of the input data
-        self.colnames2idx = {} #map from column names to indexes
+        self.translations = NULL_SAFE_FUNCS #map for column alias, functions that have to be renamed, etc
         
 
     # True after header, metadata, etc in input file
@@ -70,11 +70,10 @@ class Processor:
         self.n_input_cols = len(row) if row else 0   
 
         #dictionary to translate col names to indexes in `_values`
-        self.colnames2idx.update({self.default_col_name(_i): _i for _i in range(self.n_input_cols)})
+        self.translations.update({self.default_col_name(_i): f'_values[{_i}]' for _i in range(self.n_input_cols)})
         if self.input_col_names:
             #TODO check if len(input_col_names) == self.n_input_cols 
-            self.colnames2idx.update({self.input_col_names[_i]: _i for _i in range(self.n_input_cols)})        
-     
+            self.translations.update({self.input_col_names[_i]: f'_values[{_i}]' for _i in range(self.n_input_cols)})
 
     # Create list of output column names
     def make_out_cols_names(self, out_cols_names):
@@ -103,9 +102,8 @@ class Processor:
         if expr == '*':
             return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
 
-        for id, idx in self.colnames2idx.items():
+        for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
-            replacement = f"_values[{idx}]"
             expr = re.compile(pattern).sub(replacement, expr)
 
         return [self.strings.put_strings_back(expr)]
@@ -215,7 +213,7 @@ class TextProcessor(Processor):
 class JSONProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
-        self.colnames2idx.update({"json": 0}) # first column alias as json        
+        self.translations.update({"json": "_values[0]"}) # first column alias as json
 
     # 1 row = 1 json
     def get_input_iterator(self):
@@ -229,10 +227,6 @@ class JSONProcessor(Processor):
                 line, 
                 object_hook=lambda x: NullSafeDict(x)
             )] for line in sys.stdin)
-        
-
-
-
 
 
 ## CSV
