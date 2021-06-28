@@ -196,13 +196,13 @@ def number_conversion(fun, *args, **kwargs):
 
 # NULL-safe functions
 def float_(*args, **kwargs):
-    number_conversion(float, *args, **kwargs)
-    
+    return number_conversion(float, *args, **kwargs)
+
 def int_(*args, **kwargs):
-    number_conversion(int, *args, **kwargs)
+    return number_conversion(int, *args, **kwargs)
 
 def complex_(*args, **kwargs):
-    number_conversion(complex, *args, **kwargs)
+    return number_conversion(complex, *args, **kwargs)
 
 def str_(*args, **kwargs):
     return null_safe_call(str, *args, **kwargs)
