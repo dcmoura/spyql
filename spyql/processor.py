@@ -133,7 +133,8 @@ class Processor:
         explode_inst_cmd = None
         explode_path = self.prs['explode']    
         if (explode_path):
-            explode_it_cmd = compile(explode_path, '', 'eval')
+            explode_path = self.prepare_expression(explode_path)[0]
+            explode_it_cmd = compile(explode_path, '<explode>', 'eval')
             explode_inst_cmd = compile(f'{explode_path} = explode_it', '', 'exec')
 
         logging.info("-- RESULT --")        
