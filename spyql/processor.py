@@ -124,7 +124,10 @@ class Processor:
         if single: # a clause with a single expression like WHERE
             clause_exprs = self.prepare_expression(prs_clause)
             if len(clause_exprs) > 1:
-                user_error(SyntaxError(f"{clause.upper()} clause should not have more than 1 expression"))
+                user_error(
+                    f"could not compile {clause.upper()} clause",
+                    SyntaxError(f"{clause.upper()} clause should not have more than 1 expression")
+                )
             clause_exprs = clause_exprs[0]
         else: #a clause with multiple expressions like SELECT
             clause_exprs = [self.prepare_expression(c['expr']) for c in prs_clause]
@@ -147,9 +150,12 @@ class Processor:
                                 raise SyntaxError("empty expression")
                             compile(trans, f'<{clause}>', mode)
                     except Exception as expr_exception:
-                        user_error(expr_exception, f"compiling {clause.upper()} expression #{c+1}", self.strings.put_strings_back(expr))
+                        user_error(
+                            f"could not compile {clause.upper()} expression #{c+1}", 
+                            expr_exception,
+                            self.strings.put_strings_back(expr))
 
-            user_error(main_exception, f"compiling {clause.upper()} clause")
+            user_error(f"could not compile {clause.upper()} clause", main_exception)
 
 
     def eval_clause(self, clause, clause_exprs, vars, single = True, mode = 'eval'):
@@ -173,9 +179,16 @@ class Processor:
                         for trans in translation:
                             cmd(trans,{},vars)
                     except Exception as expr_exception:
-                        user_error(expr_exception, f"evaluating {clause.upper()} expression #{c+1}", self.strings.put_strings_back(expr), vars)
+                        user_error(
+                            f"could not evaluate {clause.upper()} expression #{c+1}", 
+                            expr_exception,
+                            self.strings.put_strings_back(expr), 
+                            vars)
 
-            user_error(main_exception, f"evaluating {clause.upper()} clause", vars = vars)
+            user_error(
+                f"could not evaluate {clause.upper()} clause", 
+                main_exception, 
+                vars = vars)
 
     # main
     def go(self):        

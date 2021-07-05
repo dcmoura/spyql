@@ -3,7 +3,7 @@
 # Allows getting items so that `a.get('b', NULL).get('c', NULL)`` returns NULL
 #  when `b` does not exist, and `NULL[x]` returns NULL
 
-import logging
+from spyql.log import user_warning
 
 class NullType:
     def __repr__(self):
@@ -185,12 +185,19 @@ def null_safe_call(fun, *args, **kwargs):
     return fun(*args, **kwargs)
 
 def number_conversion(fun, *args, **kwargs):
+    def quote_ifstr(s): 
+        return f"'{s}'" if isinstance(s, str) else s
+
     try:
         return null_safe_call(fun, *args, **kwargs)
-    except ValueError:
+    except ValueError as e:
         if len(args) > 0 and len(args[0]) > 0:
-            logging.warning(f"Invalid string converting to {fun.__name__}, returning NULL: " + 
-                ','.join(list(args) + [f"{k}={v}" for k, v in kwargs.items()])                
+            user_warning(f"could not convert string to {fun.__name__}, returning NULL",
+                e, 
+                ','.join(
+                    [quote_ifstr(v) for v in args] + 
+                    [f"{k}={quote_ifstr(v)}" for k, v in kwargs.items()]
+                )
             )            
         return NULL
 

@@ -14,10 +14,12 @@
 
 from spyql.processor import Processor
 from spyql.quotes_handler import QuotesHandler
+import spyql.log
+import logging
 import sys
 import re
 
-import logging
+
 
 
 query_struct_keywords = ['select', 'from', 'explode', 'where', 'limit', 'offset', 'to']
@@ -148,7 +150,9 @@ def parse(query):
     prs = parse_structure(query)
     
     if not prs['select']:        
-        raise SyntaxError('SELECT keyword is missing')
+        spyql.log.user_error(
+            'could not parse query', 
+            SyntaxError('SELECT keyword is missing'))
 
     prs['select'] = parse_select(prs['select'], strings)
     
@@ -218,10 +222,13 @@ def print_select_syntax():
 
 
 def main():
-    #sys.tracebacklimit = 0 # no exception traces
-    #logging.basicConfig(level=logging.INFO)
-    #logging.basicConfig(level=logging.DEBUG)
-    logging.basicConfig(level=logging.WARN, format = "%(message)s")
+    log_format = "%(message)s"
+    log_level = logging.DEBUG
+    #log_level = logging.INFO
+    #log_level = logging.WARN
+    #log_level = logging.ERROR    
+    logging.basicConfig(level=log_level, format = log_format)
+    spyql.log.error_on_warning = False
 
     #default query for simple testing:
     #query = 'select *, \'single quote\', pow(2, col1) as p, 1+2+3 = 3 * 2 as a, 10%2=0,  not 20 > 30 as b, 0 = 10%2, "a is from b",  1600365679, "this is where it goes", datetime.fromtimestamp(1600365679) FROM [x*2-1 for x in range(5)]'
@@ -236,7 +243,7 @@ def main():
     #   print_select_syntax()
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":        
     main()
 
     ## For profiling:
