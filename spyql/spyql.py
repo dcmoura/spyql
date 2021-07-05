@@ -37,7 +37,7 @@ def parse_structure(q):
     key_matches = []
     for key in keys:
         entry = re.compile(fr"\s+{key}\s+", re.IGNORECASE).search(q, last_pos)
-        if entry:
+        if entry:            
             entry = entry.span()            
             last_pos = entry[1]         
         key_matches.append(entry)   
@@ -55,6 +55,14 @@ def parse_structure(q):
             if key_matches[j]:
                 nd = key_matches[j][0]
                 break
+        
+        # this list should be empty, otherwise order of clauses was not respected
+        misplaced_keys = list(filter(None, [re.compile(fr"\s+{k}\s+", re.IGNORECASE).search(q[st:nd]) for k in keys]))        
+        if misplaced_keys:
+            spyql.log.user_error(
+                "could not parse query",
+                SyntaxError(f"misplaced {misplaced_keys[0][0].strip()} clause")
+            )    
         d[keys[i]] = q[st:nd]
 
     return d
