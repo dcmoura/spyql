@@ -55,6 +55,10 @@ def test_myoutput(capsys, monkeypatch):
     def eq_test_1row(query, expectation, data = None):
         eq_test_nrows(query, [expectation], data)
     
+    def exception_test(query, anexception):
+        with pytest.raises(anexception):
+            run(query)
+
     ## single column
     # int
     eq_test_1row("SELECT 1", {"out1": 1})
@@ -149,6 +153,14 @@ def test_myoutput(capsys, monkeypatch):
     ## custom syntax
     # easy access to dic fields
     eq_test_1row("SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour, col1->hello->world.upper() AS caps FROM [[{'three': 3, 'twenty one': 21, 'hello':{'world': 'hello world'}}]]", {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"})
+
+    ## Errors
+    #TODO find way to test custom error output
+    exception_test("SELECT 2 + ''", TypeError)
+    exception_test("SELECT abc", NameError)
+    exception_test("SELECT ,1", SyntaxError)
+    exception_test("SELECT 'abcde ", SyntaxError)
+
 
     # TODO: 
     # explode

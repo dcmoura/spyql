@@ -11,6 +11,7 @@ from itertools import islice, chain
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
 from spyql.nulltype import *
+from spyql.log import *
 
 from datetime import datetime, date, timezone
 import pytz
@@ -108,6 +109,73 @@ class Processor:
 
         return [self.strings.put_strings_back(expr)]
 
+    def compile_clause(self, clause, clause_modifier = None, single = True, mode = 'eval'):
+        """
+        Compiles a clause of the select statment.
+        """
+        prs_clause = self.prs[clause]
+        if not prs_clause:
+            return None # empty clause
+
+        if clause_modifier:
+            prs_clause = clause_modifier.format(prs_clause)
+
+        clause_exprs = None
+        if single: # a clause with a single expression like WHERE
+            clause_exprs = self.prepare_expression(prs_clause)
+            if len(clause_exprs) > 1:
+                user_error(SyntaxError(f"{clause.upper()} clause should not have more than 1 expression"))
+            clause_exprs = clause_exprs[0]
+        else: #a clause with multiple expressions like SELECT
+            clause_exprs = [self.prepare_expression(c['expr']) for c in prs_clause]
+            clause_exprs = [item for sublist in clause_exprs for item in sublist] #flatten (because of '*')
+            clause_exprs = '[' + ','.join(clause_exprs) + ']'
+
+        try:
+            return compile(clause_exprs, f'<{clause}>', mode)
+        except Exception as main_exception:
+            if not single:
+                # breaks down clause into expressions and tries
+                # compiling one by one to detect in which expression
+                # the error happened
+                for c in range(len(prs_clause)):
+                    try:
+                        expr = prs_clause[c]['expr']
+                        translation = self.prepare_expression(expr)
+                        for trans in translation:
+                            if not trans.strip():
+                                raise SyntaxError("empty expression")
+                            compile(trans, f'<{clause}>', mode)
+                    except Exception as expr_exception:
+                        user_error(expr_exception, f"compiling {clause.upper()} expression #{c+1}", self.strings.put_strings_back(expr))
+
+            user_error(main_exception, f"compiling {clause.upper()} clause")
+
+
+    def eval_clause(self, clause, clause_exprs, vars, single = True, mode = 'eval'):
+        """
+        Evaluates/executes a previously compiled clause.
+        """
+        #TODO check performance
+        cmd = eval if mode == 'eval' else exec
+        try:
+            return cmd(clause_exprs,{},vars)
+        except Exception as main_exception:
+            prs_clause = self.prs[clause]
+            if not single:
+                # breaks down clause into expressions and tries
+                # evaluating/executing one by one to detect
+                # in which expression the error happened
+                for c in range(len(prs_clause)):
+                    try:
+                        expr = prs_clause[c]['expr']
+                        translation = self.prepare_expression(expr)
+                        for trans in translation:
+                            cmd(trans,{},vars)
+                    except Exception as expr_exception:
+                        user_error(expr_exception, f"evaluating {clause.upper()} expression #{c+1}", self.strings.put_strings_back(expr), vars)
+
+            user_error(main_exception, f"evaluating {clause.upper()} clause", vars = vars)
 
     # main
     def go(self):        
@@ -118,30 +186,29 @@ class Processor:
         output_handler.finish()
 
     def _go(self, output_handler):
-        vars = globals() # to do: filter out not useful/internal vars
-
         select_expr = []
         where_expr = None
+        explode_expr = None
+        explode_cmd = None
+        explode_its = [None] # 1 element by default (no explosion)
         _values = []
         row_number = 0
-        explode_its = [None] # 1 element by default (no explosion)
+        input_row_number = 0
+
+        vars = globals() # to do: filter out not useful/internal vars
         
         # gets user-defined output cols names (with AS alias)
         out_cols_names = [c['name'] for c in self.prs['select']]
-
-        explode_it_cmd = None
-        explode_inst_cmd = None
-        explode_path = self.prs['explode']    
-        if (explode_path):
-            explode_path = self.prepare_expression(explode_path)[0]
-            explode_it_cmd = compile(explode_path, '<explode>', 'eval')
-            explode_inst_cmd = compile(f'{explode_path} = explode_it', '', 'exec')
 
         logging.info("-- RESULT --")        
 
         # should not accept more than 1 source, joins, etc (at least for now)    
         for _values in self.get_input_iterator():
-            
+            input_row_number = input_row_number + 1
+
+            vars["_values"] = _values
+            vars["input_row_number"] = input_row_number
+
             if not self.reading_data():
                 self.handle_header_row(_values)
                 continue
@@ -153,33 +220,30 @@ class Processor:
                 if output_handler.is_done():
                     return # in case of `limit 0`
             
-                # TODO: move to function(s)
-                # compiles expressions for calculating outputs
-                select_expr = [self.prepare_expression(c['expr']) for c in self.prs['select']] 
-                select_expr = [item for sublist in select_expr for item in sublist] #flatten (because of '*')                    
-                select_expr = compile('[' + ','.join(select_expr) + ']', '<select>', 'eval')                    
-                where_expr = self.prs['where']                
-                if (where_expr):
-                    #TODO: check if * is not used in where... or pass argument
-                    where_expr = compile(self.prepare_expression(where_expr)[0], '<where>', 'eval') 
-            
-            if explode_path:
-                explode_its = eval(explode_it_cmd)
-                            
+                select_expr = self.compile_clause('select', single = False)
+                where_expr = self.compile_clause('where')
+                explode_expr = self.compile_clause('explode')
+
+            if explode_expr:
+                explode_its = self.eval_clause('explode', explode_expr, vars)
+
             for explode_it in explode_its:  
-                if explode_path:
-                    exec(explode_inst_cmd)
+                if explode_expr:
+                    vars['explode_it'] = explode_it
+                    if row_number == 0:
+                        explode_cmd = self.compile_clause('explode', '{} = explode_it', mode = 'exec')                    
+                    self.eval_clause('explode', explode_cmd, vars, mode = 'exec')
+                    vars["_values"] = _values
 
                 row_number = row_number + 1
-
-                vars["_values"] = _values
                 vars["row_number"] = row_number
 
-                if not where_expr or eval(where_expr,{},vars): #filter (opt: eventually could be done before exploding)
+                #filter (opt: eventually could be done before exploding)
+                if not where_expr or self.eval_clause('where', where_expr, vars):
                     # input line is eligeble 
                     
                     # calculate outputs
-                    _res = eval(select_expr,{},vars)
+                    _res = self.eval_clause('select', select_expr, vars, single = False)
 
                     output_handler.handle_result(_res) #deal with output
                     if output_handler.is_done():

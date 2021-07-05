@@ -221,6 +221,7 @@ def main():
     #sys.tracebacklimit = 0 # no exception traces
     #logging.basicConfig(level=logging.INFO)
     #logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.WARN, format = "%(message)s")
 
     #default query for simple testing:
     #query = 'select *, \'single quote\', pow(2, col1) as p, 1+2+3 = 3 * 2 as a, 10%2=0,  not 20 > 30 as b, 0 = 10%2, "a is from b",  1600365679, "this is where it goes", datetime.fromtimestamp(1600365679) FROM [x*2-1 for x in range(5)]'
