@@ -262,7 +262,7 @@ class Processor:
                     if output_handler.is_done():
                         return #e.g. when reached limit
 
-        user_info("#rows  in", input_row_number - 1 if self.has_header else 0)
+        user_info("#rows  in", input_row_number - (1 if self.has_header else 0))
         user_info("#rows out", row_number)
 
 
