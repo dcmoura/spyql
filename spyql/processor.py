@@ -4,7 +4,6 @@ import sys
 import io
 import re
 from math import *
-import logging
 from collections.abc import Iterable
 from itertools import islice, chain
 import traceback
@@ -57,7 +56,7 @@ class Processor:
         self.strings = strings #quoted strings
         self.input_col_names = [] #column names of the input data
         self.translations = NULL_SAFE_FUNCS #map for column alias, functions that have to be renamed, etc
-
+        self.has_header = False
 
     # True after header, metadata, etc in input file
     def reading_data(self):
@@ -217,8 +216,6 @@ class Processor:
         # gets user-defined output cols names (with AS alias)
         out_cols_names = [c['name'] for c in self.prs['select']]
 
-        logging.info("-- RESULT --")
-
         # should not accept more than 1 source, joins, etc (at least for now)
         for _values in self.get_input_iterator():
             input_row_number = input_row_number + 1
@@ -231,7 +228,7 @@ class Processor:
                 continue
 
             # print header
-            if row_number == 0:
+            if not select_expr: #1st input data row
                 self.handle_1st_data_row(_values)
                 output_handler.writer.writeheader(self.make_out_cols_names(out_cols_names))
                 if output_handler.is_done():
@@ -247,17 +244,16 @@ class Processor:
             for explode_it in explode_its:
                 if explode_expr:
                     vars['explode_it'] = explode_it
-                    if row_number == 0:
+                    if not explode_cmd:
                         explode_cmd = self.compile_clause('explode', '{} = explode_it', mode = 'exec')
                     self.eval_clause('explode', explode_cmd, vars, mode = 'exec')
                     vars["_values"] = _values
 
-                row_number = row_number + 1
-                vars["row_number"] = row_number
-
                 #filter (opt: eventually could be done before exploding)
                 if not where_expr or self.eval_clause('where', where_expr, vars):
                     # input line is eligeble
+                    row_number = row_number + 1
+                    vars["row_number"] = row_number
 
                     # calculate outputs
                     _res = self.eval_clause('select', select_expr, vars)
@@ -265,6 +261,9 @@ class Processor:
                     output_handler.handle_result(_res) #deal with output
                     if output_handler.is_done():
                         return #e.g. when reached limit
+
+        user_info("#rows  in", input_row_number - 1 if self.has_header else 0)
+        user_info("#rows out", row_number)
 
 
 class PythonExprProcessor(Processor):
@@ -315,7 +314,6 @@ class JSONProcessor(Processor):
 class CSVProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
-        self.has_header = False
 
     def get_input_iterator(self):
         # Part 1 reads sample to detect dialect and if has header

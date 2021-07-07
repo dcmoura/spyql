@@ -206,7 +206,8 @@ def run(query):
 
     prs, strings = parse(query)
 
-    logging.info(prs)
+    spyql.log.user_debug_dict("Parsed query", prs)
+    spyql.log.user_debug_dict("Strings", strings.strings)
 
     processor = Processor.make_processor(prs, strings)
 
@@ -244,7 +245,6 @@ def main():
     #query = 'select *, \'single , ; quote\' AS olá mundo, 1+2+3 == 3 * 2 as a, 10%2==0,  not 20 > 30 as b, 0 == 10%2, "a is from b",  1600365679, "this is where ", date.fromtimestamp(1600365679) TO pretty'
     if len(sys.argv) > 1:
         query = sys.argv[1]
-    logging.info(query)
 
     run(query)
     #TODO: catch exception and
