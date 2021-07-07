@@ -198,8 +198,10 @@ class Processor:
         output_handler = OutputHandler.make_handler(self.prs)
         writer = Writer.make_writer(self.prs['to'], sys.stdout, {}) #todo: add options, file output
         output_handler.set_writer(writer)
-        self._go(output_handler)
+        nrows_in, nrows_out = self._go(output_handler)
         output_handler.finish()
+        user_info("#rows  in", nrows_in)
+        user_info("#rows out", nrows_out)
 
     def _go(self, output_handler):
         select_expr = []
@@ -260,11 +262,10 @@ class Processor:
 
                     output_handler.handle_result(_res) #deal with output
                     if output_handler.is_done():
-                        return #e.g. when reached limit
+                        #e.g. when reached limit
+                        return (input_row_number - (1 if self.has_header else 0), row_number)
 
-        user_info("#rows  in", input_row_number - (1 if self.has_header else 0))
-        user_info("#rows out", row_number)
-
+        return (input_row_number - (1 if self.has_header else 0), row_number)
 
 class PythonExprProcessor(Processor):
     def __init__(self, prs, strings):
