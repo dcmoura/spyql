@@ -38,6 +38,8 @@ class Processor:
             return CSVProcessor(prs, strings)
         if processor_name == 'TEXT': #single col
             return TextProcessor(prs, strings)
+        if processor_name == 'PY':
+            return PythonProcessor(prs, strings)
 
         return PythonExprProcessor(prs, strings)
         # if not reader_name or reader_name == 'CSV':
@@ -267,6 +269,7 @@ class Processor:
 
         return (input_row_number - (1 if self.has_header else 0), row_number)
 
+
 class PythonExprProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
@@ -290,6 +293,23 @@ class TextProcessor(Processor):
     def get_input_iterator(self):
         #to do: suport files
         return ([line.rstrip("\n\r")] for line in sys.stdin)
+
+
+class PythonProcessor(Processor):
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
+        self.has_header = True
+
+    def reading_data(self):
+        return self.input_col_names
+
+    def handle_header_row(self, row):
+        self.input_col_names = row
+
+    # input is a Python expression
+    def get_input_iterator(self):
+        #to do: suport files
+        return (eval(line, {}, {}) for line in sys.stdin)
 
 
 class JSONProcessor(Processor):
