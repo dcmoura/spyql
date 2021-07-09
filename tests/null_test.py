@@ -55,18 +55,18 @@ def test_arithmetic_operators():
     assert 2 ** 3 is not NULL
     assert 2 ** 3 ** NULL is NULL
 
-    assert -NULL is NULL    
-    assert +NULL is NULL    
-    assert abs(NULL) is NULL 
-    assert round(NULL) is NULL 
-    assert math.trunc(NULL) is NULL 
-    assert math.ceil(NULL) is NULL 
-    assert math.floor(NULL) is NULL 
+    assert -NULL is NULL
+    assert +NULL is NULL
+    assert abs(NULL) is NULL
+    assert round(NULL) is NULL
+    assert math.trunc(NULL) is NULL
+    assert math.ceil(NULL) is NULL
+    assert math.floor(NULL) is NULL
 
-    
-    
 
-def test_bitwise_operators():    
+
+
+def test_bitwise_operators():
     assert NULL << 2 is NULL
     assert NULL << 0 is NULL
     assert 2 << NULL is NULL
@@ -106,7 +106,7 @@ def test_bitwise_operators():
     assert ~~NULL is NULL
 
 def test_bool_operators():
-    assert not NULL # NULL bool value is False  
+    assert not NULL # NULL bool value is False
 
     assert (NULL and True) is NULL
     assert (True and NULL) is NULL
@@ -115,7 +115,7 @@ def test_bool_operators():
     assert (False and NULL) is False #inconsistent behaviour... (despite NULL evals to False)
 
     assert (NULL and NULL) is NULL
-    
+
 
     assert (NULL or True) is True
     assert (True or NULL) is True
@@ -124,7 +124,7 @@ def test_bool_operators():
     assert (False or NULL) is NULL #inconsistent behaviour... (despite NULL evals to False)
 
     assert (NULL or NULL) is NULL
-    
+
 
 def test_comparison_operators():
     assert (NULL == 2) is NULL
@@ -142,17 +142,17 @@ def test_comparison_operators():
     assert (NULL >= 2) is NULL
     assert (2 >= NULL) is NULL
     assert (NULL >= NULL) is NULL
-    
+
     assert (NULL < 2) is NULL
     assert (2 < NULL) is NULL
     assert (NULL < NULL) is NULL
-    
+
     assert (NULL <= 2) is NULL
     assert (2 <= NULL) is NULL
     assert (NULL <= NULL) is NULL
-    
+
 def test_container_operators():
-    assert len(NULL) == 0    
+    assert len(NULL) == 0
     assert len([x for x in NULL]) == 0
     assert len([x for x in reversed(NULL)]) == 0
     assert NULL["abc"] is NULL
@@ -163,9 +163,9 @@ def test_container_operators():
     assert not ("a" in NULL)
     assert not (NULL in NULL)
     assert (NULL in [NULL])
-    
 
-    
+
+
 
 def test_matrix_mult():
     assert NULL @ np.array([1,2]) is NULL
@@ -197,12 +197,12 @@ def test_casting():
     assert str_(NULL) is NULL
 
     assert complex_("1.1") == complex("1.1")
-    assert complex_("1.1+2j") == complex("1.1+2j")    
+    assert complex_("1.1+2j") == complex("1.1+2j")
     assert complex_(1) == complex(1)
     assert complex_("") is NULL
     assert complex_("abc") is NULL
     assert complex_(NULL) is NULL
-    
+
 def test_aux_functions():
     assert coalesce(1, 2) == 1
     assert coalesce(NULL, 2) == 2
@@ -211,10 +211,10 @@ def test_aux_functions():
     assert nullif(1, 1) is NULL
     assert nullif(1, 2) == 1
 
-def test_misc():    
+def test_misc():
     assert null is NULL
     assert Null is NULL
-    
+
 
 def test_dict():
     NullSafeDict({})["abc"] is NULL

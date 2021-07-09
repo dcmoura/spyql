@@ -6,6 +6,16 @@
 from spyql.log import *
 
 class NullType:
+    def __new__(cls):
+        return NULL
+    def __reduce__(self):
+        return (NullType, ())
+    def __copy__(self):
+        return NULL
+    def __deepcopy__(self, a):
+        return NULL
+    def __call__(self, default):
+        pass
     def __repr__(self):
         return "NULL"
     def __str__(self):
@@ -137,9 +147,14 @@ class NullType:
         return self
 
 #singleton
-NULL = NullType()
-Null = NULL #alias
-null = NULL #alias
+try:
+    NULL
+    # explanation here:
+    # https://stackoverflow.com/questions/41048643/how-to-create-a-second-none-in-python-making-a-singleton-object-where-the-id-is
+except NameError:
+    NULL = object.__new__(NullType)
+    Null = NULL #alias
+    null = NULL #alias
 
 #functions that support NULLs (and that need to be replaced in the query)
 NULL_SAFE_FUNCS = {
