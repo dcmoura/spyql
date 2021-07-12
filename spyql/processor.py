@@ -276,7 +276,7 @@ class PythonExprProcessor(Processor):
 
     # input is a Python expression
     def get_input_iterator(self):
-        e = eval(self.strings.put_strings_back(self.prs['from']))
+        e = self.eval_clause('from', self.compile_clause('from'), globals())
         if e:
             if not isinstance(e, Iterable):
                 e = [e]

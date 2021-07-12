@@ -178,6 +178,8 @@ def test_myoutput(capsys, monkeypatch):
     exception_test("SELECT 1 SELECT 2", SyntaxError)
     exception_test("SELECT 1 WHERE True FROM [1]", SyntaxError)
     exception_test("WHERE True", SyntaxError)
+    exception_test("SELECT 1 TO _this_writer_does_not_exist_", SyntaxError)
+    exception_test("SELECT 1 FROM [1,2,,]]", SyntaxError)
 
     spyql.log.error_on_warning = True
     exception_test("SELECT int('abcde')", ValueError)

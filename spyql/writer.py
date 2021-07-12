@@ -2,6 +2,7 @@ import io
 import csv
 import json as jsonlib
 import pickle
+from spyql.log import user_error
 import sys
 from tabulate import tabulate   # https://pypi.org/project/tabulate/
 import asciichartpy as chart
@@ -26,7 +27,7 @@ class Writer:
             return SQLWriter(outputfile, options)
         if writer_name == 'PLOT':
             return PlotWriter(outputfile, options)
-        raise Exception(f"Unknown writer: {writer_name}")
+        user_error("Unknown writer", SyntaxError("Error parsing TO statement"), writer_name)
 
 
     def __init__(self, outputfile, options):
