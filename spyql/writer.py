@@ -138,15 +138,18 @@ class SQLWriter(Writer):
 
     def writeheader(self, header):
         ## TODO: add table name
-        self.statement = f"INSERT INTO {self.table_name}(" + ",".join(header) + ") VALUES {};\n"
+        self.statement = f'INSERT INTO "{self.table_name}"(' + ",".join(
+                ['"{}"'.format(h) for h in header]
+            ) + ") VALUES {};\n"
 
     def writerow(self, row):
-        ## TODO: convert None to NULL
-        sio = io.StringIO() #check if this has performance issues...
-        sio.write("(")
-        csv.writer(sio, quoting = csv.QUOTE_NONNUMERIC, lineterminator = ")", quotechar = "'").writerow(row)
-        self.chunk.append(sio.getvalue())
-        #self.chunk.append("({})".format(",".join(str(v) for v in row)))
+        self.chunk.append("({})".format(",".join([
+            str(v) if isinstance(v, int) or isinstance(v, float) else (
+                'NULL' if v is NULL or v == None else
+                "'{}'".format(str(v).replace("'", "''"))
+            )  for v in row
+        ])))
+
         if len(self.chunk) >= self.chunk_size:
             self.writestatement()
 

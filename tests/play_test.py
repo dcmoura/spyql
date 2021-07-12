@@ -8,7 +8,7 @@ import json
 import csv
 import io
 import pytest
-
+import sqlite3
 
 def get_json_output(capsys):
     return [json.loads(
@@ -16,9 +16,9 @@ def get_json_output(capsys):
                 object_hook=lambda x: NullSafeDict(x)
             ) for line in capsys.readouterr().out.splitlines()]
 
-def get_output(capsys):
+def get_output(capsys, has_header = False):
     out = capsys.readouterr().out
-    if out.count('\n') == 1:
+    if has_header and out.count('\n') == 1:
         return ""  ## special case when outputs is the header row (output has no data)
     return out
 
@@ -51,11 +51,11 @@ def test_myoutput(capsys, monkeypatch):
         if data:
             monkeypatch.setattr('sys.stdin', io.StringIO(data))
         run(query + " TO csv")
-        assert get_output(capsys) == list_of_struct2csv_str(expectation)
+        assert get_output(capsys, True) == list_of_struct2csv_str(expectation)
         if data:
             monkeypatch.setattr('sys.stdin', io.StringIO(data))
         run(query + " TO spy")
-        assert spy2py_str(get_output(capsys)) == list_of_struct2py_str(expectation)
+        assert spy2py_str(get_output(capsys, True)) == list_of_struct2py_str(expectation)
 
     def eq_test_1row(query, expectation, data = None):
         eq_test_nrows(query, [expectation], data)
@@ -156,13 +156,14 @@ def test_myoutput(capsys, monkeypatch):
     eq_test_nrows("SELECT int(col1) as a FROM text", [{"a": NULL},{"a": 4},{"a": NULL}], data = '\n4\noops')
 
     # SPy input and NULLs
-    print([['a','b','c'], [NULL,2,3], [4,5,6], ['oops',8,9]], file=sys.stderr)
     eq_test_nrows("SELECT a as a FROM spy", [{"a": 1},{"a": 4},{"a": 7}],
         data = ''.join([SpyWriter.pack(l) for l in [['a','b','c'], [1,2,3], [4,5,6], [7,8,9]]]))
     eq_test_nrows("SELECT int(a) as a FROM spy", [{"a": NULL},{"a": 4},{"a": NULL}],
         data = ''.join([SpyWriter.pack(l) for l in [['a','b','c'], [NULL,2,3], [4,5,6], ['oops',8,9]]]))
     eq_test_nrows("SELECT a as a FROM spy", [{"a": {'aa':[11,12,13]}},{"a": 4},{"a": "ok"}],
         data = ''.join([SpyWriter.pack(l) for l in [['a','b','c'], [{'aa':[11,12,13]},2,3], [4,5,6], ['ok',8,9]]]))
+
+    # SQL output
 
     ## custom syntax
     # easy access to dic fields
@@ -191,3 +192,38 @@ def test_myoutput(capsys, monkeypatch):
 
     # Test SPY format
     # TEST SQL format WITH sqlite module
+
+def test_sql_output(capsys):
+    """
+    Writes to an in memory sqlite DB and reads back to test
+    """
+    conn = sqlite3.connect(":memory:")
+    conn.cursor().execute("""CREATE TABLE table_name(
+        aint int,
+        afloat numeric(2,1),
+        aintnull int,
+        astrnull text,
+        astr text,
+        alist text,
+        adict text)
+    """)
+    run("""
+        SELECT
+            col1 as aint,
+            col1/2 + 0.01 as afloat,
+            NULL if col1==2 else 100 as aintnull,
+            NULL if col1==1 else 'hello' as astrnull,
+            'abc' + str(col1) as astr,
+            [1,2,3] as alist,
+            {'a':col1, 'a2': col1*2} as adict
+        FROM [1,2,3]
+        TO sql
+    """)
+    conn.cursor().execute(get_output(capsys))
+    result = conn.cursor().execute("select * from table_name").fetchall()
+    conn.close()
+    expectation = [
+        (1,0.51,100,None,"abc1","[1, 2, 3]","{'a': 1, 'a2': 2}"),
+        (2,1.01,None,"hello","abc2","[1, 2, 3]","{'a': 2, 'a2': 4}"),
+        (3,1.51,100,"hello","abc3","[1, 2, 3]","{'a': 3, 'a2': 6}")]
+    assert expectation == result
