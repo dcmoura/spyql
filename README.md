@@ -13,7 +13,7 @@ SELECT
     date.fromtimestamp(purchase_ts) AS purchase_date,
     price * quantity AS total 
 FROM csv 
-WHERE department.upper() == ‘IT’ 
+WHERE department.upper() == ‘IT' 
 TO json 
 ```
 
@@ -76,7 +76,7 @@ In SpyQL:
 | `x BETWEEN a AND b`  |  `a <= x <= b` | 
 | `CAST(x AS INTEGER)` | `int(x)` |
 | `CASE WHEN x > 0 THEN 1 ELSE -1 END` | `1 if x > 0 else -1` |
-| `upper(‘hello’)` | `’hello’.upper()` |
+| `upper(‘hello')` | `'hello'.upper()` |
 
 
 ## Notable differences to Python
@@ -87,28 +87,28 @@ We added additional syntax for making querying easier:
 
 | Python | SpySQL shortcut| Purpose |
 | ------ | -------------- | ------- |
-| `json[‘hello’][‘planet earth’]` | `json->hello->‘planet earth’` | Easy access of elements in  dicts (e.g. JSONs) |
+| `json[‘hello'][‘planet earth']` | `json->hello->‘planet earth'` | Easy access of elements in  dicts (e.g. JSONs) |
 
 
 ### NULL datatype
 
-Python’s `None` generates exceptions when making operations on missing data, breaking query execution (e.g. `None + 1` throws a `TypeError`). To overcome this, we created a `NULL` type that has the same behavior as in SQL (e.g. `NULL + 1` returns `NULL`), allowing for queries to continue processing data.
+Python's `None` generates exceptions when making operations on missing data, breaking query execution (e.g. `None + 1` throws a `TypeError`). To overcome this, we created a `NULL` type that has the same behavior as in SQL (e.g. `NULL + 1` returns `NULL`), allowing for queries to continue processing data.
 
 |Operation | Native Python throws | SpySQL returns | SpySQL warning |
 | ------------- | ------------- | ------------- | ------------- |
 | `NULL + 1` | `NameError` | `NULL` | |
-| `adict[‘inexisting_key’]` | `KeyError` | `NULL` | yes | 
-| `int(‘’)`   |  `ValueError` | `NULL` | yes | 
-| `int(‘abc’)` | `ValueError` | `NULL` | yes | 
+| `adict[‘inexisting_key']` | `KeyError` | `NULL` | yes | 
+| `int(‘')`   |  `ValueError` | `NULL` | yes | 
+| `int(‘abc')` | `ValueError` | `NULL` | yes | 
 
-The above dictionary key access only returns `NULL` if the dict is an instance of `NullSafeDict`. SpyQL adds `NullSafeDict`, which extends python’s native `dict`. JSONs are automatically loaded as `NullSafeDict`. Unless you are creating dictionaries on the fly you do not need to worry about this.
+The above dictionary key access only returns `NULL` if the dict is an instance of `NullSafeDict`. SpyQL adds `NullSafeDict`, which extends python's native `dict`. JSONs are automatically loaded as `NullSafeDict`. Unless you are creating dictionaries on the fly you do not need to worry about this.
 
 ## Example queries
 
 ### Query a CSV (and print a pretty table)
 
 ```sql
-SELECT a_col_name, ‘positive’ if col2 >= 0 else ‘negative’ AS sign
+SELECT a_col_name, ‘positive' if col2 >= 0 else ‘negative' AS sign
 FROM csv 
 TO pretty
 ``` 
@@ -122,14 +122,14 @@ SELECT * FROM csv TO json
 ### Convert from CSV to a hierachical JSON
 
 ```sql
-SELECT {’client’: {’id’: col1, ‘name’: col2}, ‘price’: 120.40} 
+SELECT {'client': {'id': col1, ‘name': col2}, ‘price': 120.40} 
 FROM csv TO json 
 ``` 
 
 or
 
 ```sql
-SELECT {’id’: col1, ‘name’: col2} AS client, 120.40 AS price 
+SELECT {'id': col1, ‘name': col2} AS client, 120.40 AS price 
 FROM csv TO json 
 ``` 
 
@@ -154,8 +154,8 @@ TO csv
 Sample input:
 
 ```json
-{"invoice_num" : 1028, items: [{"name": "tomatoes", "price", 1.5}, {"name": "bananas", "price", 2.0}]}
-{"invoice_num" : 1029, items: [{"name": "peaches", "price", 3.12}]}
+{"invoice_num" : 1028, "items": [{"name": "tomatoes", "price": 1.5}, {"name": "bananas", "price": 2.0}]}
+{"invoice_num" : 1029, "items": [{"name": "peaches", "price": 3.12}]}
 ```
 
 Output:
@@ -265,7 +265,7 @@ curl https://reqres.in/api/users?page=2 |
 spyql "
 	SELECT
 		json->data->email AS email,
-		‘Dear {}, thank you for being a great customer!’.format(json->data->first_name) AS msg  
+		‘Dear {}, thank you for being a great customer!'.format(json->data->first_name) AS msg  
 	FROM json 
 	EXPLODE json->data 
 	TO json
@@ -291,7 +291,7 @@ spyql "
     TO csv
 " |
 sed 1d |
-feedgnuplot --terminal ‘dumb 80,30’ --exit --lines 
+feedgnuplot --terminal ‘dumb 80,30' --exit --lines 
 ```
 
 ```sh
