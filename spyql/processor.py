@@ -146,7 +146,6 @@ class Processor:
                 self.handle_header_row(_values)
                 continue
                                     
-            # print header
             if row_number == 0:
                 self.handle_1st_data_row(_values)
                 output_handler.writer.writeheader(self.make_out_cols_names(out_cols_names))
