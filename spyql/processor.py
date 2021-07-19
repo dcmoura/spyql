@@ -84,7 +84,7 @@ class Processor:
         out_cols_names = [name for sublist in out_cols_names for name in sublist] #flatten
         return out_cols_names 
 
-    # Returns iterator over input (e.g. list if rows)   
+    # Returns iterator over input (e.g. list of rows)   
     # Each row is list with one value per column
     # e.g.
     #   [[1] ,[2], [3]]:                3 rows with a single col
@@ -267,4 +267,3 @@ class CSVProcessor(Processor):
         s = re.sub(r'\s+', '_', s)
         
         return s
-
