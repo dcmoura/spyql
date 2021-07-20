@@ -1,10 +1,6 @@
 from spyql.nulltype import *
 import pytest
 import numpy as np
-#import sys
-#import json
-#import csv
-#import io
 import math
 
 def test_arithmetic_operators():
