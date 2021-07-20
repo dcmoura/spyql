@@ -189,7 +189,7 @@ def number_conversion(fun, *args, **kwargs):
         return null_safe_call(fun, *args, **kwargs)
     except ValueError:
         if len(args) > 0 and len(args[0]) > 0:
-            logging.warning(f"Invalid string converting to {fun.__name__}, returning NULL: " + 
+            logging.warning(f"Invalid string conversion to {fun.__name__}, returning NULL: " + 
                 ','.join(list(args) + [f"{k}={v}" for k, v in kwargs.items()])                
             )            
         return NULL
