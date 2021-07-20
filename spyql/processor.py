@@ -219,7 +219,6 @@ class JSONProcessor(Processor):
     # 1 row = 1 json
     def get_input_iterator(self):
         #to do: suport files
-        #return [[jsonlib.loads(line)] for line in sys.stdin]
 
         #this might not be the most efficient way of converting None -> NULL
         #look at: https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
@@ -276,4 +275,3 @@ class CSVProcessor(Processor):
         s = re.sub(r'\s+', '_', s)
         
         return s
-
