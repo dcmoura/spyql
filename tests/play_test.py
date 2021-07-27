@@ -1,4 +1,5 @@
 from spyql.spyql import run
+from spyql.nulltype import NULL, NullSafeDict
 import pytest
 import sys
 import json
@@ -8,7 +9,10 @@ import io
 #def test_query_no_input(query, expected) 
 
 def get_json_output(capsys):
-    return [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    return [json.loads(
+                line,
+                object_hook=lambda x: NullSafeDict(x)
+            ) for line in capsys.readouterr().out.splitlines()]
 
 def get_output(capsys):
     out = capsys.readouterr().out
@@ -33,17 +37,23 @@ def list_of_struct2py_str(vals):
     rows = [str(list(val.values())) for val in vals]
     return '\n'.join(header + rows + [""])
 
-def test_myoutput(capsys):
-    def eq_test_nrows(query, expectation):
+def test_myoutput(capsys, monkeypatch):
+    def eq_test_nrows(query, expectation, data = None):
+        if data:
+            monkeypatch.setattr('sys.stdin', io.StringIO(data))
         run(query + " TO json")    
         assert get_json_output(capsys) == expectation
+        if data:
+            monkeypatch.setattr('sys.stdin', io.StringIO(data))
         run(query + " TO csv")    
         assert get_output(capsys) == list_of_struct2csv_str(expectation)
+        if data:
+            monkeypatch.setattr('sys.stdin', io.StringIO(data))
         run(query + " TO py")    
         assert get_output(capsys) == list_of_struct2py_str(expectation)
 
-    def eq_test_1row(query, expectation):
-        eq_test_nrows(query, [expectation])
+    def eq_test_1row(query, expectation, data = None):
+        eq_test_nrows(query, [expectation], data)
     
     ## single column
     # int
@@ -67,6 +77,9 @@ def test_myoutput(capsys):
 
     # strings with commas and reserved keywords
     eq_test_1row("SELECT 'isto, from you' as 'era uma vez', 2 AS Ola", {"era uma vez": 'isto, from you', "Ola": 2})
+
+    # star over a literal
+    eq_test_1row("SELECT * FROM 1", {"col1": 1})
 
     # star over a list
     eq_test_1row("SELECT * FROM [1]", {"col1": 1})
@@ -111,6 +124,28 @@ def test_myoutput(capsys):
     # complex expressions with commas and different types of brackets  
     eq_test_1row("SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc, 2 AS two FROM [1]", {"calc": 30, "two": 2})
     
+    # NULL
+    eq_test_1row("SELECT NULL", {"out1": NULL})
+    eq_test_1row("SELECT NULL+1", {"out1": NULL})
+    eq_test_1row("SELECT int('')", {"out1": NULL})
+    eq_test_1row("SELECT coalesce(NULL,2)", {"out1": 2})
+    eq_test_1row("SELECT coalesce(3,2)", {"out1": 3})
+    eq_test_1row("SELECT nullif(1,1)", {"out1": NULL})
+    eq_test_1row("SELECT nullif(3,2)", {"out1": 3})
+
+    # JSON input and NULLs
+    eq_test_1row("SELECT json->a FROM json", {"out1": 1}, data = '{"a": 1}\n')
+    eq_test_1row("SELECT json->a FROM json", {"out1": NULL}, data = '{"a": null}\n')
+    eq_test_1row("SELECT json->b FROM json", {"out1": NULL}, data = '{"a": 1}\n')
+
+    # CSV input and NULLs
+    eq_test_nrows("SELECT int(a) as a FROM csv", [{"a": 1},{"a": 4},{"a": 7}], data = 'a,b,c\n1,2,3\n4,5,6\n7,8,9')
+    eq_test_nrows("SELECT int(a) as a FROM csv", [{"a": NULL},{"a": 4},{"a": NULL}], data = 'a,b,c\n,2,3\n4,5,6\noops,8,9')
+
+    # Text input and NULLs
+    eq_test_nrows("SELECT int(col1) as a FROM text", [{"a": 1},{"a": 4},{"a": 7}], data = '1\n4\n7')
+    eq_test_nrows("SELECT int(col1) as a FROM text", [{"a": NULL},{"a": 4},{"a": NULL}], data = '\n4\noops')
+
     ## custom syntax
     # easy access to dic fields
     eq_test_1row("SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour, col1->hello->world.upper() AS caps FROM [[{'three': 3, 'twenty one': 21, 'hello':{'world': 'hello world'}}]]", {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"})
@@ -119,11 +154,8 @@ def test_myoutput(capsys):
     # explode
     # invalid sentences
     # special functions 
-    # JSON input
     # JSON input + explode
-    # CSV with header
     # CSV without header
-    # 
 
 
 

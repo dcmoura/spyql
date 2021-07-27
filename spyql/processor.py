@@ -10,6 +10,7 @@ from itertools import islice, chain
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
+from spyql.nulltype import *
 
 from datetime import datetime, date, timezone
 import pytz
@@ -53,7 +54,7 @@ class Processor:
         self.prs = prs #parsed query
         self.strings = strings #quoted strings
         self.input_col_names = [] #column names of the input data
-        self.colnames2idx = {} #map from column names to indexes
+        self.translations = NULL_SAFE_FUNCS #map for column alias, functions that have to be renamed, etc
         
 
     # True after header, metadata, etc in input file
@@ -69,11 +70,10 @@ class Processor:
         self.n_input_cols = len(row) if row else 0   
 
         #dictionary to translate col names to indexes in `_values`
-        self.colnames2idx.update({self.default_col_name(_i): _i for _i in range(self.n_input_cols)})
+        self.translations.update({self.default_col_name(_i): f'_values[{_i}]' for _i in range(self.n_input_cols)})
         if self.input_col_names:
             #TODO check if len(input_col_names) == self.n_input_cols 
-            self.colnames2idx.update({self.input_col_names[_i]: _i for _i in range(self.n_input_cols)})
-     
+            self.translations.update({self.input_col_names[_i]: f'_values[{_i}]' for _i in range(self.n_input_cols)})
 
     # Create list of output column names
     def make_out_cols_names(self, out_cols_names):
@@ -102,9 +102,8 @@ class Processor:
         if expr == '*':
             return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
 
-        for id, idx in self.colnames2idx.items():
+        for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
-            replacement = f"_values[{idx}]"
             expr = re.compile(pattern).sub(replacement, expr)
 
         return [self.strings.put_strings_back(expr)]
@@ -134,7 +133,8 @@ class Processor:
         explode_inst_cmd = None
         explode_path = self.prs['explode']    
         if (explode_path):
-            explode_it_cmd = compile(explode_path, '', 'eval')
+            explode_path = self.prepare_expression(explode_path)[0]
+            explode_it_cmd = compile(explode_path, '<explode>', 'eval')
             explode_inst_cmd = compile(f'{explode_path} = explode_it', '', 'exec')
 
         logging.info("-- RESULT --")        
@@ -172,6 +172,7 @@ class Processor:
                 row_number = row_number + 1
 
                 vars["_values"] = _values
+                vars["row_number"] = row_number
 
                 if not where_expr or eval(where_expr,{},vars): #filter (opt: eventually could be done before exploding)
                     # input line is eligeble 
@@ -206,18 +207,25 @@ class TextProcessor(Processor):
     # reads a text row as a row with 1 column
     def get_input_iterator(self):
         #to do: suport files
-        return [[line.rstrip("\n\r")] for line in sys.stdin]
+        return ([line.rstrip("\n\r")] for line in sys.stdin)
 
     
 class JSONProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
-        self.colnames2idx.update({"json": 0}) # first column alias as json
+        self.translations.update({"json": "_values[0]"}) # first column alias as json
 
     # 1 row = 1 json
     def get_input_iterator(self):
         #to do: suport files
-        return [[jsonlib.loads(line)] for line in sys.stdin]
+
+        #this might not be the most efficient way of converting None -> NULL
+        #look at: https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
+        return ([
+            jsonlib.loads(
+                line, 
+                object_hook=lambda x: NullSafeDict(x)
+            )] for line in sys.stdin)
 
 
 ## CSV
