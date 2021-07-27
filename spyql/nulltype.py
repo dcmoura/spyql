@@ -1,5 +1,5 @@
 # Defines the NULL datatype that mimics SQL's NULL
-# Unlike None, which throughs exceptions, operations whith NULLs return NULL
+# Unlike None, which throws exceptions, operations with NULLs return NULL
 # Allows getting items so that `a.get('b', NULL).get('c', NULL)`` returns NULL
 #  when `b` does not exist, and `NULL[x]` returns NULL
 

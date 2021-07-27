@@ -70,7 +70,7 @@ class SimpleJSONWriter(Writer):
 
     def makerow(self, row):
         single_dict = self.header in [['out1'],['col1'],['json']] and len(row) == 1 and isinstance(row[0], dict)
-        obj = row[0] if single_dict else  dict(zip(self.header, row))
+        obj = row[0] if single_dict else dict(zip(self.header, row))
         return jsonlib.dumps(obj, default=lambda x: None if x is NULL else str(x), **self.options)
 
 class PrettyWriter(Writer):
