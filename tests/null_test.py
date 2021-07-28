@@ -1,11 +1,8 @@
 from spyql.nulltype import *
 import pytest
 import numpy as np
-#import sys
-#import json
-#import csv
-#import io
 import math
+
 
 def test_arithmetic_operators():
     assert NULL + 2 is NULL
@@ -64,8 +61,6 @@ def test_arithmetic_operators():
     assert math.floor(NULL) is NULL
 
 
-
-
 def test_bitwise_operators():
     assert NULL << 2 is NULL
     assert NULL << 0 is NULL
@@ -105,23 +100,27 @@ def test_bitwise_operators():
     assert ~NULL is NULL
     assert ~~NULL is NULL
 
+
 def test_bool_operators():
-    assert not NULL # NULL bool value is False
+    assert not NULL  # NULL bool value is False
 
     assert (NULL and True) is NULL
     assert (True and NULL) is NULL
 
     assert (NULL and False) is NULL
-    assert (False and NULL) is False #inconsistent behaviour... (despite NULL evals to False)
+    assert (
+        False and NULL
+    ) is False  # inconsistent behaviour... (despite NULL evals to False)
 
     assert (NULL and NULL) is NULL
-
 
     assert (NULL or True) is True
     assert (True or NULL) is True
 
     assert (NULL or False) is False
-    assert (False or NULL) is NULL #inconsistent behaviour... (despite NULL evals to False)
+    assert (
+        False or NULL
+    ) is NULL  # inconsistent behaviour... (despite NULL evals to False)
 
     assert (NULL or NULL) is NULL
 
@@ -151,6 +150,7 @@ def test_comparison_operators():
     assert (2 <= NULL) is NULL
     assert (NULL <= NULL) is NULL
 
+
 def test_container_operators():
     assert len(NULL) == 0
     assert len([x for x in NULL]) == 0
@@ -162,18 +162,17 @@ def test_container_operators():
     assert not (1 in NULL)
     assert not ("a" in NULL)
     assert not (NULL in NULL)
-    assert (NULL in [NULL])
-
-
+    assert NULL in [NULL]
 
 
 def test_matrix_mult():
-    assert NULL @ np.array([1,2]) is NULL
+    assert NULL @ np.array([1, 2]) is NULL
     assert NULL @ np.array([]) is NULL
-    assert np.array([1,2]) @ NULL is NULL
+    assert np.array([1, 2]) @ NULL is NULL
     assert NULL @ NULL is NULL
-    assert np.array([1,2]) @ np.array([3,4]) is not NULL
-    assert np.array([1,2]) @ np.array([3,4]) @ NULL is NULL
+    assert np.array([1, 2]) @ np.array([3, 4]) is not NULL
+    assert np.array([1, 2]) @ np.array([3, 4]) @ NULL is NULL
+
 
 def test_casting():
     assert float_("1.1") == float("1.1")
@@ -203,6 +202,7 @@ def test_casting():
     assert complex_("abc") is NULL
     assert complex_(NULL) is NULL
 
+
 def test_aux_functions():
     assert coalesce(1, 2) == 1
     assert coalesce(NULL, 2) == 2
@@ -210,6 +210,7 @@ def test_aux_functions():
     assert ifnull(NULL, 2) == 2
     assert nullif(1, 1) is NULL
     assert nullif(1, 2) == 1
+
 
 def test_misc():
     assert null is NULL
@@ -219,7 +220,7 @@ def test_misc():
 def test_dict():
     NullSafeDict({})["abc"] is NULL
     NullSafeDict({"abc": None})["abc"] is NULL
-    NullSafeDict({"abc": None})["abc"] != None #Attention!
+    NullSafeDict({"abc": None})["abc"] != None  # Attention!
     NullSafeDict({"abc": 1})["abc"] is not NULL
     NullSafeDict({"abc": "def"})["abc"] is not NULL
     NullSafeDict({})["abc"]["def"]["hij"] is NULL
