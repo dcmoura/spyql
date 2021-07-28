@@ -17,13 +17,16 @@ from datetime import datetime, date, timezone
 import pytz
 
 
-# extra... need to find some way to add user imports...
+# TODO need to find some way to add user imports...
 # e.g. ~/.spyql.py file with python code to run at startup
 
 
 class Processor:
     @staticmethod
     def make_processor(prs, strings):
+        """
+        Factory for making a file processor based on the parsed query
+        """
         processor_name = prs["from"]
         if not processor_name:
             return Processor(prs, strings)
@@ -40,35 +43,33 @@ class Processor:
             return SpyProcessor(prs, strings)
 
         return PythonExprProcessor(prs, strings)
-        # if not reader_name or reader_name == 'CSV':
-        #     return CSVWriter(inputfile, options)
-
-        # if reader_name == 'PY':
-        #     return PyWriter(inputfile, options)
-        # if reader_name == 'SQL':
-        #     return SQLWriter(inputfile, options)
-        # raise Exception(f"Unknown reader: {reader_name}")
 
     def __init__(self, prs, strings):
         self.prs = prs  # parsed query
         self.strings = strings  # quoted strings
         self.input_col_names = []  # column names of the input data
-        self.translations = NULL_SAFE_FUNCS  # map for column alias, functions that have to be renamed, etc
+        self.translations = NULL_SAFE_FUNCS  # map for alias, functions to be renamed...
         self.has_header = False
 
-    # True after header, metadata, etc in input file
     def reading_data(self):
+        """
+        Returns True after reading header, metadata, etc in input file
+        """
         return True
 
-    # Action for header row (e.g. column name definition)
     def handle_header_row(self, row):
+        """
+        Action for header row (e.g. column name definition)
+        """
         pass
 
-    # Action for handling the first row of data
     def handle_1st_data_row(self, row):
+        """
+        Action for handling the first row of data
+        """
         self.n_input_cols = len(row) if row else 0
 
-        # dictionary to translate col names to indexes in `_values`
+        # dictionary to translate col names to accesses to `_values`
         self.translations.update(
             {
                 self.default_col_name(_i): f"_values[{_i}]"
@@ -84,8 +85,10 @@ class Processor:
                 }
             )
 
-    # Create list of output column names
     def make_out_cols_names(self, out_cols_names):
+        """
+        Creates list of output column names
+        """
         input_col_names = self.input_col_names
         if not input_col_names:
             input_col_names = [
@@ -99,21 +102,27 @@ class Processor:
         ]  # flatten
         return out_cols_names
 
-    # Returns iterator over input (e.g. list if rows)
-    # Each row is list with one value per column
-    # e.g.
-    #   [[1] ,[2], [3]]:                3 rows with a single col
-    #   [[1,'a'], [2,'b'], [3,'c']]:    3 rows with 2 cols
     def get_input_iterator(self):
+        """
+        Returns iterator over input (e.g. list if rows)
+        Each row is list with one value per column
+        e.g.
+            [[1] ,[2], [3]]:                3 rows with a single col
+            [[1,'a'], [2,'b'], [3,'c']]:    3 rows with 2 cols
+        """
         return [[None]]  # default: returns a single line with a 'null' column
 
-    # Default column names, e.g. col1 for the first column
     def default_col_name(self, idx):
+        """
+        Default column names, e.g. col1 for the first column
+        """
         return f"col{idx+1}"
 
-    # replace identifiers (column names) in sql expressions by references to `_values`
-    # and put (quoted) strings back
     def prepare_expression(self, expr):
+        """
+        Replaces identifiers (column names) in sql expressions by references to
+        `_values` and put (quoted) strings back
+        """
         if expr == "*":
             return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
 
@@ -124,11 +133,14 @@ class Processor:
         return [self.strings.put_strings_back(expr)]
 
     def is_clause_single(self, clause):
+        """
+        True if clause can only have a single expression
+        """
         return clause not in ["select"]
 
     def compile_clause(self, clause, clause_modifier=None, mode="eval"):
         """
-        Compiles a clause of the select statment.
+        Compiles a clause of the select statment
         """
         prs_clause = self.prs[clause]
         if not prs_clause:
@@ -183,7 +195,7 @@ class Processor:
 
     def eval_clause(self, clause, clause_exprs, vars, mode="eval"):
         """
-        Evaluates/executes a previously compiled clause.
+        Evaluates/executes a previously compiled clause
         """
         # TODO check performance
         cmd = eval if mode == "eval" else exec
@@ -216,9 +228,7 @@ class Processor:
     # main
     def go(self):
         output_handler = OutputHandler.make_handler(self.prs)
-        writer = Writer.make_writer(
-            self.prs["to"], sys.stdout, {}
-        )  # todo: add options, file output
+        writer = Writer.make_writer(self.prs["to"], sys.stdout, {})  # TODO add options
         output_handler.set_writer(writer)
         nrows_in, nrows_out = self._go(output_handler)
         output_handler.finish()
@@ -350,11 +360,10 @@ class JSONProcessor(Processor):
 
     # 1 row = 1 json
     def get_input_iterator(self):
-        # to do: suport files
-        # return [[jsonlib.loads(line)] for line in sys.stdin]
+        # TODO suport files
 
-        # this might not be the most efficient way of converting None -> NULL
-        # look at: https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
+        # this might not be the most efficient way of converting None -> NULL, look at:
+        # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
         return (
             [jsonlib.loads(line, object_hook=lambda x: NullSafeDict(x))]
             for line in sys.stdin
@@ -379,8 +388,7 @@ class CSVProcessor(Processor):
             return []
         dialect = csv.Sniffer().sniff(sample_val)
         self.has_header = csv.Sniffer().has_header(sample_val)
-        # print(self.has_header)
-        # print(dialect)
+
         sample.seek(0)  # rewinds the sample
         return chain(
             csv.reader(

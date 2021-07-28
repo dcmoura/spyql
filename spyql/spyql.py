@@ -10,7 +10,7 @@
 #
 # running tests + coverage:
 # > pytest --cov=spyql tests
-#
+
 
 from spyql.nulltype import NULL
 from spyql.processor import Processor
@@ -40,6 +40,8 @@ def parse_structure(q):
             entry = entry.span()
             last_pos = entry[1]
         key_matches.append(entry)
+
+    ## Alternative code where order is not enforced:
     # key_matches = [re.search(fr"\s+{key}\s+", q, re.IGNORECASE) for key in keys]
     # key_matches = [(m.span() if m else None)  for m in key_matches]
 
@@ -77,7 +79,7 @@ def parse_structure(q):
 
 # replaces sql/custom syntax by python syntax
 def pythonize(s):
-    # todo: check for special SQL stuff such as in, is, like
+    # TODO check for special SQL stuff such as in, is, like
     # s = re.compile(r"([^=<>])={1}([^=])").sub(r"\1==\2", s)
     # DECISION: expressions are PURE python code :-)
     # eventual exceptions: "IS NULL" by "== None" and "IS NOT NULL ..."
@@ -119,16 +121,12 @@ def custom_sel_split(s):
     sep.append(None)
     parts = [s[sep[i] + 1 : sep[i + 1]].strip() for i in range(len(sep) - 1)]
 
-    #    print()
-    #    print(parts)
-    #    print()
-
     return parts
 
 
-# devides the select into columns and find their names
+# divides the select clause into columns and find their names
 def parse_select(sel, strings):
-    # TODO: support column alias without AS
+    # TODO support column alias without AS
 
     sel = [c.strip() for c in custom_sel_split(sel)]
     new_sel = []
@@ -163,9 +161,6 @@ def parse(query):
     strings = QuotesHandler()
     query = strings.extract_strings(query)
 
-    # (query, strings) = get_query_strings(query)
-    # print(query)
-    # print(strings)
     prs = parse_structure(query)
 
     if not prs["select"]:
@@ -175,7 +170,7 @@ def parse(query):
 
     prs["select"] = parse_select(prs["select"], strings)
 
-    # TODO: generalize
+    # TODO generalize
     if prs["from"]:
         prs["from"] = make_expr_ready(prs["from"], strings)
 
@@ -242,7 +237,7 @@ def print_select_syntax():
 
 def main():
     log_format = "%(message)s"
-    log_level = logging.DEBUG
+    log_level = logging.DEBUG  # TODO command line arg
     # log_level = logging.INFO
     # log_level = logging.WARN
     # log_level = logging.ERROR
@@ -250,24 +245,24 @@ def main():
     spyql.log.error_on_warning = False
 
     # default query for simple testing:
-    # query = 'select *, \'single quote\', pow(2, col1) as p, 1+2+3 = 3 * 2 as a, 10%2=0,  not 20 > 30 as b, 0 = 10%2, "a is from b",  1600365679, "this is where it goes", datetime.fromtimestamp(1600365679) FROM [x*2-1 for x in range(5)]'
     query = (
         "select *, 'single , ; quote' AS olá mundo, pow(2, col1) as p, 1+2+3 == 3 * 2"
         ' as a, 10%2==0,  not 20 > 30 as b, 0 == 10%2, "a is from b",  1600365679,'
         ' "this is where ", date.fromtimestamp(1600365679) FROM [x*2-1 for x in'
         " range(5)] LIMIT 2 TO pretty "
     )
-    # query = 'select *, \'single , ; quote\' AS olá mundo, 1+2+3 == 3 * 2 as a, 10%2==0,  not 20 > 30 as b, 0 == 10%2, "a is from b",  1600365679, "this is where ", date.fromtimestamp(1600365679) TO pretty'
+
     if len(sys.argv) > 1:
         query = sys.argv[1]
 
     run(query)
-    # TODO: catch exception and
-    #   print_select_syntax()
+    # TODO catch exception and print_select_syntax()
 
 
 if __name__ == "__main__":
     main()
+
+    # TODO find a better way to call profiling on demand
 
     ## For profiling:
     #

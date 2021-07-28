@@ -29,7 +29,10 @@ SpyQL also allows you to easily convert between text data formats:
 * `FROM`: CSV, JSON, TEXT and Python iterators (YES, you can use a list comprehension as the data source)
 
 * `TO`: CSV, JSON, TEXT, SQL (INSERT statments), pretty terminal printing, and terminal plotting. 
-The JSON format is [JSON lines](https://jsonlines.org), where each line has a valid JSON object or array. Piping with [jq](https://stedolan.github.io/jq/) allows SpyQL to handle any JSON input (more on the examples section) 
+
+The JSON format is [JSON lines](https://jsonlines.org), where each line has a valid JSON object or array. Piping with [jq](https://stedolan.github.io/jq/) allows SpyQL to handle any JSON input (more on the examples section).
+
+You can leverage command line tools to process other file types like Parquet and XML  (more on the examples section).
 
 
 ## Principles
@@ -54,7 +57,7 @@ SELECT
     [ TO csv | json | text | spy | sql | pretty | plot ]
 ```
 
-Comming next: `ORDER BY` and `GROUP BY`
+Comming next: `ORDER BY`, `GROUP BY`, `EXECUTE`
 
 
 ## Notable differences to SQL
@@ -184,6 +187,8 @@ FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]
 
 ### Python multi column iterator to CSV
 
+TODO Example of Python multi column iterator to CSV
+
 
 ## Command line examples
 
@@ -233,7 +238,7 @@ cat file.toml | tomlq -c | spyql "SELECT json->a_field FROM json"
 
 Read data from a kafka topic and write to postgres.
 
-NOTE: `sql  options not yet implemented`
+NOTE: sql  options not yet implemented, i.e. output table name and number of records per insert are hardcoded
 
 ```sh
 kafkacat -b the.broker.com -t the.topic | 
@@ -248,6 +253,8 @@ psql -U an_user_name -h a.host.com a_database_name
 ```
 
 ### Sub-queries (piping)
+
+A special file format (spy) is used to efficiently pipe data between queries.
 
 ```sh
 cat a_file.json |

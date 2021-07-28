@@ -1,9 +1,7 @@
-import io
 import csv
 import json as jsonlib
 import pickle
 from spyql.log import user_error
-import sys
 from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
 from spyql.nulltype import NULL
@@ -54,7 +52,7 @@ class CSVWriter(Writer):
         super().__init__(outputfile, options)
         self.csv = csv.writer(outputfile, **options)
 
-    # TODO: allow specifying output CSV parameters
+    # TODO allow specifying output CSV parameters
     def writeheader(self, header):
         self.csv.writerow(header)
 
@@ -88,13 +86,13 @@ class PrettyWriter(Writer):
     def __init__(self, outputfile, options):
         super().__init__(outputfile, options)
         self.all_rows = []  # needs to store output in memory
-        # TODO: force a limit on the output and warn user
+        # TODO force a limit on the output and warn user
 
     def writerow(self, row):
         self.all_rows.append(row)  # accumulates
 
     def writerows(self, rows):
-        # to do: handle default tablefmt
+        # TODO handle default tablefmt
         self.outputfile.write(
             tabulate(rows, self.header, tablefmt="simple", **self.options)
         )
@@ -123,10 +121,7 @@ class PlotWriter(PrettyWriter):
         # first transpose rows into cols
         cols = list(map(list, zip(*rows)))
 
-        self.outputfile.write(
-            chart.plot(cols, config)
-        )  # , self.header, tablefmt="simple", **self.options))
-        # print(rows)
+        self.outputfile.write(chart.plot(cols, config))
         if self.header:
             self.outputfile.write("\n\nLegend: ")
             for i in range(len(self.header)):
@@ -160,12 +155,11 @@ class SpyWriter(Writer):
 class SQLWriter(Writer):
     def __init__(self, outputfile, options):
         super().__init__(outputfile, options)
-        self.chunk_size = 10000  # TODO: options!
-        self.table_name = "table_name"  # TODO: options!
+        self.chunk_size = 10000  # TODO: move to options!
+        self.table_name = "table_name"  # TODO: move to options!
         self.chunk = []
 
     def writeheader(self, header):
-        ## TODO: add table name
         self.statement = (
             f'INSERT INTO "{self.table_name}"('
             + ",".join(['"{}"'.format(h) for h in header])

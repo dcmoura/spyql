@@ -25,7 +25,6 @@ class OutputHandler:
             self.rows_written = self.rows_written + 1
 
     def finish(self):
-        # self.writer.writerow([self.rows_written])
         self.writer.flush()
 
 

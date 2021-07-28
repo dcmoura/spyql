@@ -1,9 +1,8 @@
 from spyql.writer import SpyWriter
-from spyql.processor import Processor, SpyProcessor
+from spyql.processor import SpyProcessor
 from spyql.spyql import run
 from spyql.nulltype import NULL, NullSafeDict
 import spyql.log
-import sys
 import json
 import csv
 import io
@@ -21,7 +20,7 @@ def get_json_output(capsys):
 def get_output(capsys, has_header=False):
     out = capsys.readouterr().out
     if has_header and out.count("\n") == 1:
-        return ""  ## special case when outputs is the header row (output has no data)
+        return ""  # special case when outputs is the header row (output has no data)
     return out
 
 
@@ -261,15 +260,8 @@ def test_myoutput(capsys, monkeypatch):
     exception_test("SELECT int('abcde')", ValueError)
     spyql.log.error_on_warning = False
 
-    # TODO:
-    # explode
-    # invalid sentences
-    # special functions
-    # JSON input + explode
-    # CSV without header
-
-    # Test SPY format
-    # TEST SQL format WITH sqlite module
+    # TODO test explode
+    # TODO test CSV without header
 
 
 def test_sql_output(capsys):
