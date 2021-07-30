@@ -1,9 +1,10 @@
 import csv
 import json as jsonlib
 import pickle
-from spyql.log import user_error
 from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
+
+from spyql.log import user_error
 from spyql.nulltype import NULL
 
 
