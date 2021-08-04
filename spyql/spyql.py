@@ -15,6 +15,7 @@
 from spyql.nulltype import NULL
 from spyql.processor import Processor
 from spyql.quotes_handler import QuotesHandler
+import spyql.utils
 import spyql.log
 import logging
 import sys
@@ -134,10 +135,16 @@ def parse_select(sel, strings):
     for i in range(len(sel)):
         c = sel[i]
         sas = re.search(as_pattern, c)
-        name = f"out{i+1}"
+        name = ""
         if sas:
             name = c[(sas.span()[1]) :].strip()
             c = c[: (sas.span()[0])]
+        else:
+            # automatic output column name from expresopm
+            # removes json 'variable' reference (visual garbage)
+            name = re.compile(r"(\s|^)json(->|\[)").sub(r"\1", c)
+            # makes the string a valid python variable name
+            name = spyql.utils.make_str_valid_varname(strings.put_strings_back(name))
 
         if c.strip() == "*":
             c = "*"
@@ -146,7 +153,6 @@ def parse_select(sel, strings):
             name = strings.put_strings_back(name, quote=False)
             c = f"{make_expr_ready(c, strings)}"
 
-        # new_sel[name] = c
         new_sel.append({"name": name, "expr": c})
 
     return new_sel
