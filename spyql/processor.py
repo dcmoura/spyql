@@ -199,7 +199,6 @@ class Processor:
         """
         Evaluates/executes a previously compiled clause
         """
-        # TODO check performance
         cmd = eval if mode == "eval" else exec
         try:
             return cmd(clause_exprs, {}, vars)
