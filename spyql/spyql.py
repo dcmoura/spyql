@@ -230,11 +230,15 @@ def run(query):
 @click.command()
 @click.argument("query")
 @click.option(
-    "-W",
-    "warning_flag",
-    type=click.Choice(["default", "error"]),
-    default="default",
-    help="If warnings do not halt execution (default) or if are turned into errors.",
+    "--profile",
+    "-p",
+    "profile",
+    is_flag=True,
+    default=False,
+    help=(
+        "Profile code with cProfile and writes output to the file spyql.stats."
+        " Collecting profiling statistics slows down query execution."
+    ),
 )
 @click.option(
     "--verbose",
@@ -248,20 +252,20 @@ def run(query):
     ),
 )
 @click.option(
-    "--profile",
-    "-p",
-    "profile",
-    is_flag=True,
-    default=False,
+    "-W",
+    "warning_flag",
+    type=click.Choice(["default", "error"]),
+    default="default",
     help=(
-        "Profile code with cProfile and writes output to the file spyql.stats."
-        " Collecting profiling statistics slows down query execution."
+        "Set if warnings are turned into errors or if warnings do not halt execution"
+        " (default)."
     ),
 )
 @click.version_option(version="0.1.0")
 def main(query, warning_flag, verbose, profile):
     """
     Tool to run a SpyQL QUERY over text data.
+    For more info visit: https://github.com/dcmoura/spyql
 
     \b
     SELECT
