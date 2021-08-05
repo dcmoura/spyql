@@ -258,6 +258,7 @@ def run(query):
         " Collecting profiling statistics slows down query execution."
     ),
 )
+@click.version_option(version="0.1.0")
 def main(query, warning_flag, verbose, profile):
     """
     Tool to run a SpyQL QUERY over text data.
