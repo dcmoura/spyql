@@ -247,7 +247,18 @@ def run(query):
         " messages; 2 to show additional debug messages."
     ),
 )
-def main(query, warning_flag, verbose):
+@click.option(
+    "--profile",
+    "-p",
+    "profile",
+    is_flag=True,
+    default=False,
+    help=(
+        "Profile code with cProfile and writes output to the file spyql.stats."
+        " Collecting profiling statistics slows down query execution."
+    ),
+)
+def main(query, warning_flag, verbose, profile):
     """
     Tool to run a SpyQL QUERY over text data.
 
@@ -264,21 +275,13 @@ def main(query, warning_flag, verbose):
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
 
-    run(query)
+    if profile:
+        import cProfile
+
+        cProfile.runctx("run(query)", globals(), locals(), "spyql.stats")
+    else:
+        run(query)
 
 
 if __name__ == "__main__":
     main()
-
-    # TODO find a better way to call profiling on demand
-
-    ## For profiling:
-    #
-    # import cProfile
-    # import pstats
-    # from pstats import SortKey
-    # cProfile.run('main()', 'spyql.stats')
-    # p = pstats.Stats('spyql.stats').strip_dirs()
-
-    # p.sort_stats(SortKey.CUMULATIVE).dump_stats('spyql.stats.cum')
-    # p.sort_stats(SortKey.TIME).dump_stats('spyql.stats.time')
