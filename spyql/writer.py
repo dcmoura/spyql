@@ -13,20 +13,20 @@ class Writer:
     def make_writer(writer_name, outputfile, options):
         try:
             if not writer_name:
-                return CSVWriter(outputfile, options)
+                return CSVWriter(outputfile, **options)
             writer_name = writer_name.upper()
             if writer_name == "CSV":
-                return CSVWriter(outputfile, options)
+                return CSVWriter(outputfile, **options)
             if writer_name == "JSON":
-                return SimpleJSONWriter(outputfile, options)
+                return SimpleJSONWriter(outputfile, **options)
             if writer_name == "PRETTY":
-                return PrettyWriter(outputfile, options)
+                return PrettyWriter(outputfile, **options)
             if writer_name == "SPY":
-                return SpyWriter(outputfile, options)
+                return SpyWriter(outputfile, **options)
             if writer_name == "SQL":
-                return SQLWriter(outputfile, options)
+                return SQLWriter(outputfile, **options)
             if writer_name == "PLOT":
-                return PlotWriter(outputfile, options)
+                return PlotWriter(outputfile, **options)
         except TypeError as e:
             user_error(f"Could not create '{writer_name}' writer", e)
         user_error(
@@ -35,9 +35,8 @@ class Writer:
             writer_name,
         )
 
-    def __init__(self, outputfile, options):
+    def __init__(self, outputfile):
         self.outputfile = outputfile
-        self.options = options
 
     def writeheader(self, header):
         self.header = header
@@ -52,20 +51,11 @@ class Writer:
     def flush(self):
         pass
 
-    def force_empty_options(self):
-        """
-        Raises exception if there are (invalid) options.
-        Valid options should have been poped from `options` before calling this method.
-        """
-        for key in self.options.keys():
-            # raise exception with the first key found (first unknown option)
-            raise TypeError("Unexpected keyword argument '{}'".format(key))
-
 
 class CSVWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        self.header_on = self.options.pop("header", True)
+    def __init__(self, outputfile, header=True, **options):
+        super().__init__(outputfile)
+        self.header_on = header
         self.csv = csv.writer(outputfile, **options)
 
     def writeheader(self, header):
@@ -80,16 +70,17 @@ class CSVWriter(Writer):
 
 
 class SimpleJSONWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        jsonlib.dumps({"a": 1}, **self.options)  # test options
+    def __init__(self, outputfile, **options):
+        super().__init__(outputfile)
+        jsonlib.dumps({"a": 1}, **options)  # test options
+        self.options = options
 
     def writerow(self, row):
         self.outputfile.write(self.makerow(row) + "\n")
 
     def makerow(self, row):
         single_dict = (
-            self.header in [["out1"], ["col1"], ["json"]]
+            self.header in [["col1"], ["json"]]
             and len(row) == 1
             and isinstance(row[0], dict)
         )
@@ -106,8 +97,8 @@ class CollectWriter(Writer):
     Child classes must implement the `writerows` method.
     """
 
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
+    def __init__(self, outputfile):
+        super().__init__(outputfile)
         self.all_rows = []  # needs to store output in memory
 
     def writerow(self, row):
@@ -122,11 +113,11 @@ class CollectWriter(Writer):
 
 
 class PrettyWriter(CollectWriter):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        self.tablefmt = self.options.pop("tablefmt", "simple")
-        self.header_on = self.options.pop("header", True)
-        tabulate([[1, 2, 3]], **self.options)  # test options
+    def __init__(self, outputfile, header=True, **options):
+        super().__init__(outputfile)
+        tabulate([[1, 2, 3]], **options)  # test options
+        self.header_on = header
+        self.options = options
 
     def writerows(self, rows):
         # TODO handle default tablefmt
@@ -134,7 +125,6 @@ class PrettyWriter(CollectWriter):
             tabulate(
                 rows,
                 self.header if self.header_on else [],
-                tablefmt=self.tablefmt,
                 **self.options,
             )
         )
@@ -142,11 +132,10 @@ class PrettyWriter(CollectWriter):
 
 
 class PlotWriter(CollectWriter):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        self.header_on = self.options.pop("header", True)
-        self.height = self.options.pop("height", 20)
-        self.force_empty_options()
+    def __init__(self, outputfile, header=True, height=20):
+        super().__init__(outputfile)
+        self.header_on = header
+        self.height = height
 
     def writerows(self, rows):
         colors = [
@@ -178,9 +167,8 @@ class PlotWriter(CollectWriter):
 
 
 class SpyWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        self.force_empty_options()
+    def __init__(self, outputfile):
+        super().__init__(outputfile)
 
     @staticmethod
     def pack(row):
@@ -195,11 +183,10 @@ class SpyWriter(Writer):
 
 
 class SQLWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        self.chunk_size = self.options.pop("chunk_size", 1000)
-        self.table_name = self.options.pop("table", "table_name")
-        self.force_empty_options()
+    def __init__(self, outputfile, chunk_size=1000, table="table_name"):
+        super().__init__(outputfile)
+        self.chunk_size = chunk_size
+        self.table_name = table
         self.chunk = []
 
     def writeheader(self, header):
