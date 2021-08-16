@@ -65,6 +65,7 @@ def test_myoutput(capsys, monkeypatch):
         assert spy2py_str(get_output(capsys, True)) == list_of_struct2py_str(
             expectation
         )
+        # TODO include pretty
 
     def eq_test_1row(query, expectation, data=None):
         eq_test_nrows(query, [expectation], data)
@@ -270,7 +271,7 @@ def test_sql_output(capsys):
     """
     conn = sqlite3.connect(":memory:")
     conn.cursor().execute(
-        """CREATE TABLE table_name(
+        """CREATE TABLE test1(
         aint int,
         afloat numeric(2,1),
         aintnull int,
@@ -292,10 +293,11 @@ def test_sql_output(capsys):
             {'a':col1, 'a2': col1*2} as adict
         FROM [1,2,3]
         TO sql
-    """
+        """,
+        output_opt={"table": "test1", "chunk_size": 3},
     )
     conn.cursor().execute(get_output(capsys))
-    result = conn.cursor().execute("select * from table_name").fetchall()
+    result = conn.cursor().execute("select * from test1").fetchall()
     conn.close()
     expectation = [
         (1, 0.51, 100, None, "abc1", "[1, 2, 3]", "{'a': 1, 'a2': 2}"),

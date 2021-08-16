@@ -227,9 +227,9 @@ class Processor:
             )
 
     # main
-    def go(self):
+    def go(self, output_options):
         output_handler = OutputHandler.make_handler(self.prs)
-        writer = Writer.make_writer(self.prs["to"], sys.stdout, {})  # TODO add options
+        writer = Writer.make_writer(self.prs["to"], sys.stdout, output_options)
         output_handler.set_writer(writer)
         nrows_in, nrows_out = self._go(output_handler)
         output_handler.finish()

@@ -211,10 +211,20 @@ def re_search_first(*argv):
     return re.search(*argv).group(0)
 
 
+def parse_options(ctx, param, options):
+    options = [opt.split("=", 1) for opt in options]
+    for opt in options:
+        if len(opt) < 2:
+            raise click.BadParameter(
+                f"bad format for option '{opt[0]}', format must be 'option=value'"
+            )
+    return {kv[0]: spyql.utils.try2eval(kv[1], globals()) for kv in options}
+
+
 ###############
 # run
 ###############
-def run(query):
+def run(query, input_opt={}, output_opt={}):
     query = clean_query(query)
 
     prs, strings = parse(query)
@@ -224,11 +234,33 @@ def run(query):
 
     processor = Processor.make_processor(prs, strings)
 
-    processor.go()
+    processor.go(output_opt)
 
 
 @click.command()
 @click.argument("query")
+@click.option(
+    "-I",
+    "input_opt",
+    type=click.UNPROCESSED,
+    callback=parse_options,
+    multiple=True,
+    help=(
+        "Set input options in the format 'option=value'. Example: -Idelimiter=,"
+        " -Iheader=False"
+    ),
+)
+@click.option(
+    "-O",
+    "output_opt",
+    type=click.UNPROCESSED,
+    callback=parse_options,
+    multiple=True,
+    help=(
+        "Set output options in the format 'option=value'. Example: -Odelimiter=,"
+        " -Oheader=False"
+    ),
+)
 @click.option(
     "--profile",
     "-p",
@@ -262,7 +294,7 @@ def run(query):
     ),
 )
 @click.version_option(version="0.1.0")
-def main(query, warning_flag, verbose, profile):
+def main(query, warning_flag, verbose, profile, input_opt, output_opt):
     """
     Tool to run a SpyQL QUERY over text data.
     For more info visit: https://github.com/dcmoura/spyql
@@ -285,7 +317,7 @@ def main(query, warning_flag, verbose, profile):
 
         cProfile.runctx("run(query)", globals(), locals(), "spyql.stats")
     else:
-        run(query)
+        run(query, input_opt, output_opt)
 
 
 if __name__ == "__main__":
