@@ -57,28 +57,28 @@ def spy2py_str(lines):
 
 
 def test_myoutput(capsys, monkeypatch):
-    def eq_test_nrows(query, expectation, data=None):
+    def eq_test_nrows(query, expectation, data=None, **kwargs):
         if data:
             monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO json")
+        run(query + " TO json", **kwargs)
         assert get_json_output(capsys) == expectation
         if data:
             monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO csv")
+        run(query + " TO csv", **kwargs)
         assert get_output(capsys, True) == list_of_struct2csv_str(expectation)
         if data:
             monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO spy")
+        run(query + " TO spy", **kwargs)
         assert spy2py_str(get_output(capsys, True)) == list_of_struct2py_str(
             expectation
         )
         if data:
             monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO pretty")
+        run(query + " TO pretty", **kwargs)
         assert get_output(capsys, True) == list_of_struct2pretty_str(expectation)
 
-    def eq_test_1row(query, expectation, data=None):
-        eq_test_nrows(query, [expectation], data)
+    def eq_test_1row(query, expectation, data=None, **kwargs):
+        eq_test_nrows(query, [expectation], data, **kwargs)
 
     def exception_test(query, anexception, **kwargs):
         with pytest.raises(anexception):
@@ -194,6 +194,18 @@ def test_myoutput(capsys, monkeypatch):
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="a,b,c\n,2,3\n4,5,6\noops,8,9",
     )
+    eq_test_nrows(
+        "SELECT int(a) as a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        input_opt={"delimiter": ","},
+    )
+    eq_test_nrows(
+        "SELECT int(col1) as a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data=",2,3\n4,5,6\noops,8,9",
+        input_opt={"delimiter": ",", "header": False},
+    )
 
     # Text input and NULLs
     eq_test_nrows(
@@ -275,7 +287,6 @@ def test_myoutput(capsys, monkeypatch):
     spyql.log.error_on_warning = False
 
     # TODO test explode
-    # TODO test CSV without header
 
 
 def test_sql_output(capsys):

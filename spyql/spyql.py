@@ -232,7 +232,7 @@ def run(query, input_opt={}, output_opt={}):
     spyql.log.user_debug_dict("Parsed query", prs)
     spyql.log.user_debug_dict("Strings", strings.strings)
 
-    processor = Processor.make_processor(prs, strings)
+    processor = Processor.make_processor(prs, strings, input_opt)
 
     processor.go(output_opt)
 
