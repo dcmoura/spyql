@@ -1,3 +1,4 @@
+from tabulate import tabulate
 from spyql.writer import SpyWriter
 from spyql.processor import SpyProcessor
 from spyql.spyql import run
@@ -22,6 +23,12 @@ def get_output(capsys, has_header=False):
     if has_header and out.count("\n") == 1:
         return ""  # special case when outputs is the header row (output has no data)
     return out
+
+
+def list_of_struct2pretty_str(vals):
+    if not vals:
+        return ""
+    return tabulate(vals, headers="keys", tablefmt="simple") + "\n"
 
 
 def list_of_struct2csv_str(vals):
@@ -65,7 +72,10 @@ def test_myoutput(capsys, monkeypatch):
         assert spy2py_str(get_output(capsys, True)) == list_of_struct2py_str(
             expectation
         )
-        # TODO include pretty
+        if data:
+            monkeypatch.setattr("sys.stdin", io.StringIO(data))
+        run(query + " TO pretty")
+        assert get_output(capsys, True) == list_of_struct2pretty_str(expectation)
 
     def eq_test_1row(query, expectation, data=None):
         eq_test_nrows(query, [expectation], data)
