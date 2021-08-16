@@ -207,10 +207,6 @@ def parse(query):
     return (prs, strings)
 
 
-def re_search_first(*argv):
-    return re.search(*argv).group(0)
-
-
 def parse_options(ctx, param, options):
     options = [opt.split("=", 1) for opt in options]
     for opt in options:
