@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-import spyql.spyql
+import spyql.cli
 import spyql.log
 from spyql.writer import SpyWriter
 from spyql.processor import SpyProcessor
@@ -54,7 +54,7 @@ def spy2py(lines):
 
 
 def run_spyql(query="", options=[], data=None, runner=CliRunner(), exception=True):
-    return runner.invoke(spyql.spyql.main, options + [query], input=data)
+    return runner.invoke(spyql.cli.main, options + [query], input=data)
 
 
 def eq_test_nrows(query, expectation, data=None, options=[]):
