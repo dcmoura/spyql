@@ -80,9 +80,9 @@ def test_myoutput(capsys, monkeypatch):
     def eq_test_1row(query, expectation, data=None):
         eq_test_nrows(query, [expectation], data)
 
-    def exception_test(query, anexception):
+    def exception_test(query, anexception, **kwargs):
         with pytest.raises(anexception):
-            run(query)
+            run(query, **kwargs)
 
     ## single column
     # int
@@ -266,6 +266,9 @@ def test_myoutput(capsys, monkeypatch):
     exception_test("WHERE True", SyntaxError)
     exception_test("SELECT 1 TO _this_writer_does_not_exist_", SyntaxError)
     exception_test("SELECT 1 FROM [1,2,,]]", SyntaxError)
+    exception_test("SELECT 1 TO csv", TypeError, output_opt={"unexisting_option", 1})
+    exception_test("SELECT 1 TO plot", TypeError, output_opt={"unexisting_option": 1})
+    exception_test("SELECT 1 TO csv", TypeError, output_opt={"delimiter", "bad"})
 
     spyql.log.error_on_warning = True
     exception_test("SELECT int('abcde')", ValueError)
