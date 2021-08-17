@@ -12,6 +12,8 @@ from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
 from spyql.nulltype import *
 from spyql.log import *
+from spyql.utils import make_str_valid_varname
+
 
 from datetime import datetime, date, timezone
 import pytz
@@ -402,20 +404,4 @@ class CSVProcessor(Processor):
         return (not self.has_header) or (self.input_col_names)
 
     def handle_header_row(self, row):
-        self.input_col_names = [self.make_str_valid_varname(val) for val in row]
-
-    def make_str_valid_varname(self, s):
-        # remove invalid characters (except spaces in-between)
-        s = re.sub(r"[^0-9a-zA-Z_\s]", "", s).strip()
-
-        # remove leading characters that are not letters or underscore
-        # s = re.sub(r'^[^a-zA-Z_]+', '', s)
-
-        # if first char is not letter or underscore then add underscore to make it valid
-        if not re.match("^[a-zA-Z_]", s):
-            s = "_" + s
-
-        # replace spaces by underscores (instead of dropping spaces) for readability
-        s = re.sub(r"\s+", "_", s)
-
-        return s
+        self.input_col_names = [make_str_valid_varname(val) for val in row]

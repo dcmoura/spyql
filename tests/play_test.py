@@ -75,19 +75,19 @@ def test_myoutput(capsys, monkeypatch):
 
     ## single column
     # int
-    eq_test_1row("SELECT 1", {"out1": 1})
-    eq_test_1row("SELECT 1+2", {"out1": 3})
+    eq_test_1row("SELECT 1", {"_1": 1})
+    eq_test_1row("SELECT 1+2", {"_1_2": 3})
 
     # float
-    eq_test_1row("SELECT 1.1", {"out1": 1.1})
-    eq_test_1row("SELECT 1+0.2", {"out1": 1.2})
+    eq_test_1row("SELECT 1.1", {"_1_1": 1.1})
+    eq_test_1row("SELECT 1+0.2", {"_1_0_2": 1.2})
 
     # text
-    eq_test_1row("SELECT '1'", {"out1": "1"})
-    eq_test_1row("SELECT '1'+'2'", {"out1": "12"})
+    eq_test_1row("SELECT '1'", {"_1": "1"})
+    eq_test_1row("SELECT '1'+'2'", {"_1_2": "12"})
 
     # two columns with differemt data types
-    eq_test_1row("SELECT '1', 2", {"out1": "1", "out2": 2})
+    eq_test_1row("SELECT '1', 2", {"_1": "1", "_2": 2})
 
     # alias
     eq_test_1row("SELECT '1' as a, 2 AS Ola", {"a": "1", "Ola": 2})
@@ -159,18 +159,18 @@ def test_myoutput(capsys, monkeypatch):
     )
 
     # NULL
-    eq_test_1row("SELECT NULL", {"out1": NULL})
-    eq_test_1row("SELECT NULL+1", {"out1": NULL})
-    eq_test_1row("SELECT int('')", {"out1": NULL})
-    eq_test_1row("SELECT coalesce(NULL,2)", {"out1": 2})
-    eq_test_1row("SELECT coalesce(3,2)", {"out1": 3})
-    eq_test_1row("SELECT nullif(1,1)", {"out1": NULL})
-    eq_test_1row("SELECT nullif(3,2)", {"out1": 3})
+    eq_test_1row("SELECT NULL", {"NULL": NULL})
+    eq_test_1row("SELECT NULL+1", {"NULL_1": NULL})
+    eq_test_1row("SELECT int('')", {"int": NULL})
+    eq_test_1row("SELECT coalesce(NULL,2)", {"coalesce_NULL_2": 2})
+    eq_test_1row("SELECT coalesce(3,2)", {"coalesce_3_2": 3})
+    eq_test_1row("SELECT nullif(1,1)", {"nullif_1_1": NULL})
+    eq_test_1row("SELECT nullif(3,2)", {"nullif_3_2": 3})
 
     # JSON input and NULLs
-    eq_test_1row("SELECT json->a FROM json", {"out1": 1}, data='{"a": 1}\n')
-    eq_test_1row("SELECT json->a FROM json", {"out1": NULL}, data='{"a": null}\n')
-    eq_test_1row("SELECT json->b FROM json", {"out1": NULL}, data='{"a": 1}\n')
+    eq_test_1row("SELECT json->a FROM json", {"a": 1}, data='{"a": 1}\n')
+    eq_test_1row("SELECT json->a FROM json", {"a": NULL}, data='{"a": null}\n')
+    eq_test_1row("SELECT json->b FROM json", {"b": NULL}, data='{"a": 1}\n')
 
     # CSV input and NULLs
     eq_test_nrows(

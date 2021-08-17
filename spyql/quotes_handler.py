@@ -1,7 +1,6 @@
 import re
 import random
 import string
-import logging
 
 STRING_PLACEHOLDER_LEN = 32
 

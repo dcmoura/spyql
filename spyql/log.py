@@ -3,6 +3,8 @@ import asciichartpy as colors
 import sys
 import json
 
+from spyql.utils import quote_ifstr
+
 error_on_warning = False  # TODO command line arg
 
 
@@ -71,10 +73,6 @@ def user_debug_dict(message, adict):
     Reports (debug) information, printing a dict as a pretty json.
     """
     user_debug(message, json.dumps(adict, indent=4))
-
-
-def quote_ifstr(s):
-    return f"'{s}'" if isinstance(s, str) else s
 
 
 def user_warning4func(message, exception, *args, **kwargs):
