@@ -15,7 +15,7 @@ class OutputHandler:
         pass
 
     def is_done(self):
-        return self.limit != None and self.rows_written >= self.limit
+        return self.limit is not None and self.rows_written >= self.limit
 
     def write(self, row):
         if self.offset > 0:

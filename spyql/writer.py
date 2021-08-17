@@ -205,7 +205,7 @@ class SQLWriter(Writer):
                         if isinstance(v, int) or isinstance(v, float)
                         else (
                             "NULL"
-                            if v is NULL or v == None
+                            if v is NULL or v is None
                             else "'{}'".format(str(v).replace("'", "''"))
                         )
                         for v in row

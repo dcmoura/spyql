@@ -11,6 +11,7 @@ import io
 import sqlite3
 
 
+# --------  AUX FUNCTIONS  --------
 def json_output(out):
     return [
         json.loads(line, object_hook=lambda x: NullSafeDict(x))
@@ -87,10 +88,10 @@ def exception_test(query, anexception, **kwargs):
     assert isinstance(res.exception, anexception)
 
 
-######  TESTS  ######
+# --------  TESTS  --------
 def test_basic():
 
-    ## single column
+    # single column
     # int
     eq_test_1row("SELECT 1", {"_1": 1})
     eq_test_1row("SELECT 1+2", {"_1_2": 3})
@@ -249,8 +250,8 @@ def test_processors():
         [{"a": 1}, {"a": 4}, {"a": 7}],
         data="".join(
             [
-                SpyWriter.pack(l)
-                for l in [["a", "b", "c"], [1, 2, 3], [4, 5, 6], [7, 8, 9]]
+                SpyWriter.pack(line)
+                for line in [["a", "b", "c"], [1, 2, 3], [4, 5, 6], [7, 8, 9]]
             ]
         ),
     )
@@ -259,8 +260,8 @@ def test_processors():
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="".join(
             [
-                SpyWriter.pack(l)
-                for l in [["a", "b", "c"], [NULL, 2, 3], [4, 5, 6], ["oops", 8, 9]]
+                SpyWriter.pack(line)
+                for line in [["a", "b", "c"], [NULL, 2, 3], [4, 5, 6], ["oops", 8, 9]]
             ]
         ),
     )
@@ -269,8 +270,8 @@ def test_processors():
         [{"a": {"aa": [11, 12, 13]}}, {"a": 4}, {"a": "ok"}],
         data="".join(
             [
-                SpyWriter.pack(l)
-                for l in [
+                SpyWriter.pack(line)
+                for line in [
                     ["a", "b", "c"],
                     [{"aa": [11, 12, 13]}, 2, 3],
                     [4, 5, 6],

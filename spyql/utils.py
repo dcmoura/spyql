@@ -22,5 +22,5 @@ def make_str_valid_varname(s):
 def try2eval(val, globals={}, locals={}):
     try:
         return eval(val, globals, locals)
-    except:
+    except Exception:
         return val

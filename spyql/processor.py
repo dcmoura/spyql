@@ -4,20 +4,21 @@ import pickle
 import sys
 import io
 import re
-from math import *
 from collections.abc import Iterable
 from itertools import islice, chain
 from io import StringIO
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
-from spyql.nulltype import *
-from spyql.log import *
+import spyql.nulltype
+import spyql.log
 from spyql.utils import make_str_valid_varname
 
-
-from datetime import datetime, date, timezone
-import pytz
+# imports for user queries # TODO move to config file
+from datetime import datetime, date, timezone  # noqa: F401
+import pytz  # noqa
+from spyql.nulltype import *  # noqa
+from math import *  # noqa
 
 
 # TODO need to find some way to add user imports...
@@ -48,13 +49,15 @@ class Processor:
 
             return PythonExprProcessor(prs, strings, **input_options)
         except TypeError as e:
-            user_error(f"Could not create '{processor_name}' processor", e)
+            spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
 
     def __init__(self, prs, strings):
         self.prs = prs  # parsed query
         self.strings = strings  # quoted strings
         self.input_col_names = []  # column names of the input data
-        self.translations = NULL_SAFE_FUNCS  # map for alias, functions to be renamed...
+        self.translations = (
+            spyql.nulltype.NULL_SAFE_FUNCS
+        )  # map for alias, functions to be renamed...
         self.has_header = False
 
     def reading_data(self):
@@ -160,7 +163,7 @@ class Processor:
         if single:  # a clause with a single expression like WHERE
             clause_exprs = self.prepare_expression(prs_clause)
             if len(clause_exprs) > 1:
-                user_error(
+                spyql.log.user_error(
                     f"could not compile {clause.upper()} clause",
                     SyntaxError(
                         f"{clause.upper()} clause should not have more than 1"
@@ -191,13 +194,15 @@ class Processor:
                                 raise SyntaxError("empty expression")
                             compile(trans, f"<{clause}>", mode)
                     except Exception as expr_exception:
-                        user_error(
+                        spyql.log.user_error(
                             f"could not compile {clause.upper()} expression #{c+1}",
                             expr_exception,
                             self.strings.put_strings_back(expr),
                         )
 
-            user_error(f"could not compile {clause.upper()} clause", main_exception)
+            spyql.log.user_error(
+                f"could not compile {clause.upper()} clause", main_exception
+            )
 
     def eval_clause(self, clause, clause_exprs, vars, mode="eval"):
         """
@@ -219,14 +224,14 @@ class Processor:
                         for trans in translation:
                             cmd(trans, {}, vars)
                     except Exception as expr_exception:
-                        user_error(
+                        spyql.log.user_error(
                             f"could not evaluate {clause.upper()} expression #{c+1}",
                             expr_exception,
                             self.strings.put_strings_back(expr),
                             vars,
                         )
 
-            user_error(
+            spyql.log.user_error(
                 f"could not evaluate {clause.upper()} clause", main_exception, vars=vars
             )
 
@@ -237,8 +242,8 @@ class Processor:
         output_handler.set_writer(writer)
         nrows_in, nrows_out = self._go(output_handler)
         output_handler.finish()
-        user_info("#rows  in", nrows_in)
-        user_info("#rows out", nrows_out)
+        spyql.log.user_info("#rows  in", nrows_in)
+        spyql.log.user_info("#rows out", nrows_out)
 
     def _go(self, output_handler):
         select_expr = []
@@ -372,12 +377,18 @@ class JSONProcessor(Processor):
         # this might not be the most efficient way of converting None -> NULL, look at:
         # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
         return (
-            [jsonlib.loads(line, object_hook=lambda x: NullSafeDict(x), **self.options)]
+            [
+                jsonlib.loads(
+                    line,
+                    object_hook=lambda x: spyql.nulltype.NullSafeDict(x),
+                    **self.options,
+                )
+            ]
             for line in sys.stdin
         )
 
 
-## CSV
+# CSV
 class CSVProcessor(Processor):
     def __init__(self, prs, strings, sample_size=10, header=None, **options):
         super().__init__(prs, strings)
@@ -388,7 +399,7 @@ class CSVProcessor(Processor):
 
     def get_input_iterator(self):
         # Part 1 reads sample to detect dialect and if has header
-        # TODO: infer data type
+        # TODO infer data type
         # TODO force linedelimiter to be new line char set
 
         # saves sample to a string
@@ -404,13 +415,13 @@ class CSVProcessor(Processor):
             try:
                 self.options = {"dialect": csv.Sniffer().sniff(sample_val)}
             except Exception as e:
-                user_error("Could not detect CSV dialect from input", e)
-            if self.has_header == None:
+                spyql.log.user_error("Could not detect CSV dialect from input", e)
+            if self.has_header is None:
                 try:
                     self.has_header = csv.Sniffer().has_header(sample_val)
                 except Exception as e:
-                    user_error("Could not detect if input CSV has header", e)
-        elif self.has_header == None:
+                    spyql.log.user_error("Could not detect if input CSV has header", e)
+        elif self.has_header is None:
             self.has_header = True  # default if dialect is not automatically detected
 
         sample.seek(0)  # rewinds the sample
