@@ -13,7 +13,7 @@ def user_error(message, exception, code = None, vars = None):
     """
     sys.tracebacklimit = 0
     logging.error(f"{colors.lightred}ERROR{colors.reset}\t{message}{': ' + colors.lightyellow + str(code) + colors.reset if code else ''}")
-    if vars and vars['input_row_number'] and vars['_values']:
+    if vars and vars.get('input_row_number') and vars.get('_values'):
         logging.error(f"\tat data row #{vars['input_row_number']}: {colors.darkgray}{vars['_values']}{colors.reset}")
     raise exception from None
 

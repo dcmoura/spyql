@@ -12,6 +12,7 @@
 # > pytest --cov=spyql tests
 #
 
+from spyql.nulltype import NULL
 from spyql.processor import Processor
 from spyql.quotes_handler import QuotesHandler
 import spyql.log

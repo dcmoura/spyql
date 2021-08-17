@@ -1,12 +1,12 @@
 import csv
 import json as jsonlib
+import pickle
 import sys
 import io
 import re
 from math import *
 from collections.abc import Iterable
 from itertools import islice, chain
-import traceback
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
@@ -38,6 +38,8 @@ class Processor:
             return CSVProcessor(prs, strings)
         if processor_name == 'TEXT': #single col
             return TextProcessor(prs, strings)
+        if processor_name == 'SPY':
+            return SpyProcessor(prs, strings)
 
         return PythonExprProcessor(prs, strings)
         # if not reader_name or reader_name == 'CSV':
@@ -234,7 +236,7 @@ class Processor:
                 self.handle_1st_data_row(_values)
                 output_handler.writer.writeheader(self.make_out_cols_names(out_cols_names))
                 if output_handler.is_done():
-                    return # in case of `limit 0`
+                    return (0, 0)# in case of `limit 0`
 
                 select_expr = self.compile_clause('select')
                 where_expr = self.compile_clause('where')
@@ -267,13 +269,14 @@ class Processor:
 
         return (input_row_number - (1 if self.has_header else 0), row_number)
 
+
 class PythonExprProcessor(Processor):
     def __init__(self, prs, strings):
         super().__init__(prs, strings)
 
     # input is a Python expression
     def get_input_iterator(self):
-        e = eval(self.strings.put_strings_back(self.prs['from']))
+        e = self.eval_clause('from', self.compile_clause('from'), globals())
         if e:
             if not isinstance(e, Iterable):
                 e = [e]
@@ -290,6 +293,28 @@ class TextProcessor(Processor):
     def get_input_iterator(self):
         #to do: suport files
         return ([line.rstrip("\n\r")] for line in sys.stdin)
+
+
+class SpyProcessor(Processor):
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
+        self.has_header = True
+
+    def reading_data(self):
+        return self.input_col_names
+
+    def handle_header_row(self, row):
+        self.input_col_names = row
+
+    @staticmethod
+    def unpack_line(line):
+        return pickle.loads(bytes.fromhex(line))
+
+    # input is a serialized Python list converted to hex
+    def get_input_iterator(self):
+        #to do: suport files
+        return (self.unpack_line(line[0:-1]) for line in sys.stdin)
+
 
 
 class JSONProcessor(Processor):

@@ -1,6 +1,8 @@
 import io
 import csv
 import json as jsonlib
+import pickle
+from spyql.log import user_error
 import sys
 from tabulate import tabulate   # https://pypi.org/project/tabulate/
 import asciichartpy as chart
@@ -19,13 +21,13 @@ class Writer:
             return SimpleJSONWriter(outputfile, options)
         if writer_name == 'PRETTY':
             return PrettyWriter(outputfile, options)
-        if writer_name == 'PY':
-            return PyWriter(outputfile, options)
+        if writer_name == 'SPY':
+            return SpyWriter(outputfile, options)
         if writer_name == 'SQL':
             return SQLWriter(outputfile, options)
         if writer_name == 'PLOT':
             return PlotWriter(outputfile, options)
-        raise Exception(f"Unknown writer: {writer_name}")
+        user_error("Unknown writer", SyntaxError("Error parsing TO statement"), writer_name)
 
 
     def __init__(self, outputfile, options):
@@ -112,34 +114,43 @@ class PlotWriter(PrettyWriter):
             self.outputfile.write("\n")
 
 
-class PyWriter(Writer):
+class SpyWriter(Writer):
     def __init__(self, outputfile, options):
         super().__init__(outputfile, options)
 
+    @staticmethod
+    def pack(row):
+        return pickle.dumps(row).hex() + '\n'
+
     def writeheader(self, header):
-        self.outputfile.write(str(header) + '\n')
+        #TODO first line is a dict with list of cols, version, etc
+        self.outputfile.write(self.pack(header))
 
     def writerow(self, row):
-        self.outputfile.write(str(row) + '\n')
+        self.outputfile.write(self.pack(row))
 
 
 class SQLWriter(Writer):
     def __init__(self, outputfile, options):
         super().__init__(outputfile, options)
         self.chunk_size = 10000 #TODO: options!
+        self.table_name = 'table_name' #TODO: options!
         self.chunk = []
 
     def writeheader(self, header):
         ## TODO: add table name
-        self.statement = "INSERT INTO yyy(" + ",".join(header) + ") VALUES {};\n"
+        self.statement = f'INSERT INTO "{self.table_name}"(' + ",".join(
+                ['"{}"'.format(h) for h in header]
+            ) + ") VALUES {};\n"
 
     def writerow(self, row):
-        ## TODO: convert None to NULL
-        sio = io.StringIO() #check if this has performance issues...
-        sio.write("(")
-        csv.writer(sio, quoting = csv.QUOTE_NONNUMERIC, lineterminator = ")", quotechar = "'").writerow(row)
-        self.chunk.append(sio.getvalue())
-        #self.chunk.append("({})".format(",".join(str(v) for v in row)))
+        self.chunk.append("({})".format(",".join([
+            str(v) if isinstance(v, int) or isinstance(v, float) else (
+                'NULL' if v is NULL or v == None else
+                "'{}'".format(str(v).replace("'", "''"))
+            )  for v in row
+        ])))
+
         if len(self.chunk) >= self.chunk_size:
             self.writestatement()
 
