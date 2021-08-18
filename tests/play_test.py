@@ -363,4 +363,3 @@ def test_sql_output():
 def test_plot_output():
     res = run_spyql("SELECT col1 as abc, col1*2 FROM range(20) TO plot")
     assert res.exit_code == 0  # just checking that it does not break...
-
