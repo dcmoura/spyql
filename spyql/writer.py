@@ -92,8 +92,8 @@ class SimpleJSONWriter(Writer):
 
 class CollectWriter(Writer):
     """
-    Abstract writer that collects all records into a (in-memory) list and dumps the
-    all output records at the end.
+    Abstract writer that collects all records into a (in-memory) list and dumps all
+    the output records at the end.
     Child classes must implement the `writerows` method.
     """
 
