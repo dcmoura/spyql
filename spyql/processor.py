@@ -16,7 +16,6 @@ from spyql.utils import make_str_valid_varname
 
 # imports for user queries # TODO move to config file
 from datetime import datetime, date, timezone  # noqa: F401
-import pytz  # noqa
 from spyql.nulltype import *  # noqa
 from math import *  # noqa
 
