@@ -5,7 +5,7 @@ import json
 
 from spyql.utils import quote_ifstr
 
-error_on_warning = False  # TODO command line arg
+error_on_warning = False  # overrided by command line arg
 
 
 def colored(val, color):

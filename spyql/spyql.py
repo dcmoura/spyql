@@ -20,6 +20,7 @@ import spyql.log
 import logging
 import sys
 import re
+import click
 
 
 query_struct_keywords = ["select", "from", "explode", "where", "limit", "offset", "to"]
@@ -226,57 +227,50 @@ def run(query):
     processor.go()
 
 
-def print_select_syntax():
-    print(
-        """
-  SELECT
-    [ * | python_expression [ AS output_column_name ] [, ...] ]
-    [ FROM csv | qy | text | arff | python_expression | json [ EXPLODE path ] ]
-    [ FILE path ]  ??
-    [ WHERE python_expression ]
-    [ LIMIT row_count ]
-    [ OFFSET num_rows_to_skip ]
-    [ TO csv | json | text | arff | py | sql | pretty | plot ]
+@click.command()
+@click.argument("query")
+@click.option(
+    "--verbose",
+    "-v",
+    "verbose",
+    default=0,
+    help=(
+        "Set verbose level: -2 to supress errors and warnings; -1 to supress warnings;"
+        " 0 to only show errors and warnings (default); 1 to show additional info"
+        " messages; 2 to show additional debug messages."
+    ),
+)
+@click.option(
+    "-W",
+    "warning_flag",
+    type=click.Choice(["default", "error"]),
+    default="default",
+    help=(
+        "Set if warnings are turned into errors or if warnings do not halt execution"
+        " (default)."
+    ),
+)
+@click.version_option(version="0.1.0")
+def main(query, warning_flag, verbose):
     """
-    )
+    Tool to run a SpyQL QUERY over text data.
+    For more info visit: https://github.com/dcmoura/spyql
 
+    \b
+    SELECT
+        [ * | python_expression [ AS output_column_name ] [, ...] ]
+        [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
+        [ WHERE python_expression ]
+        [ LIMIT row_count ]
+        [ OFFSET num_rows_to_skip ]
+        [ TO csv | json | text | spy | sql | pretty | plot ]
+    """
 
-def main():
-    log_format = "%(message)s"
-    log_level = logging.DEBUG  # TODO command line arg
-    # log_level = logging.INFO
-    # log_level = logging.WARN
-    # log_level = logging.ERROR
-    logging.basicConfig(level=log_level, format=log_format)
-    spyql.log.error_on_warning = False
-
-    # default query for simple testing:
-    query = (
-        "select *, 'single , ; quote' AS olá mundo, pow(2, col1) as p, 1+2+3 == 3 * 2"
-        ' as a, 10%2==0,  not 20 > 30 as b, 0 == 10%2, "a is from b",  1600365679,'
-        ' "this is where ", date.fromtimestamp(1600365679) FROM [x*2-1 for x in'
-        " range(5)] LIMIT 2 TO pretty "
-    )
-
-    if len(sys.argv) > 1:
-        query = sys.argv[1]
+    logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
+    spyql.log.error_on_warning = warning_flag == "error"
 
     run(query)
-    # TODO catch exception and print_select_syntax()
 
 
 if __name__ == "__main__":
     main()
-
-    # TODO find a better way to call profiling on demand
-
-    ## For profiling:
-    #
-    # import cProfile
-    # import pstats
-    # from pstats import SortKey
-    # cProfile.run('main()', 'spyql.stats')
-    # p = pstats.Stats('spyql.stats').strip_dirs()
-
-    # p.sort_stats(SortKey.CUMULATIVE).dump_stats('spyql.stats.cum')
-    # p.sort_stats(SortKey.TIME).dump_stats('spyql.stats.time')
