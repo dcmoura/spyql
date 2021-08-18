@@ -207,14 +207,20 @@ def parse(query):
     return (prs, strings)
 
 
-def re_search_first(*argv):
-    return re.search(*argv).group(0)
+def parse_options(ctx, param, options):
+    options = [opt.split("=", 1) for opt in options]
+    for opt in options:
+        if len(opt) < 2:
+            raise click.BadParameter(
+                f"bad format for option '{opt[0]}', format must be 'option=value'"
+            )
+    return {kv[0]: spyql.utils.try2eval(kv[1], globals()) for kv in options}
 
 
 ###############
 # run
 ###############
-def run(query):
+def run(query, input_opt={}, output_opt={}):
     query = clean_query(query)
 
     prs, strings = parse(query)
@@ -222,13 +228,35 @@ def run(query):
     spyql.log.user_debug_dict("Parsed query", prs)
     spyql.log.user_debug_dict("Strings", strings.strings)
 
-    processor = Processor.make_processor(prs, strings)
+    processor = Processor.make_processor(prs, strings, input_opt)
 
-    processor.go()
+    processor.go(output_opt)
 
 
 @click.command()
 @click.argument("query")
+@click.option(
+    "-I",
+    "input_opt",
+    type=click.UNPROCESSED,
+    callback=parse_options,
+    multiple=True,
+    help=(
+        "Set input options in the format 'option=value'. Example: -Idelimiter=,"
+        " -Iheader=False"
+    ),
+)
+@click.option(
+    "-O",
+    "output_opt",
+    type=click.UNPROCESSED,
+    callback=parse_options,
+    multiple=True,
+    help=(
+        "Set output options in the format 'option=value'. Example: -Odelimiter=,"
+        " -Oheader=False"
+    ),
+)
 @click.option(
     "--verbose",
     "-v",
@@ -251,7 +279,7 @@ def run(query):
     ),
 )
 @click.version_option(version="0.1.0")
-def main(query, warning_flag, verbose):
+def main(query, warning_flag, verbose, input_opt, output_opt):
     """
     Tool to run a SpyQL QUERY over text data.
     For more info visit: https://github.com/dcmoura/spyql
@@ -269,7 +297,7 @@ def main(query, warning_flag, verbose):
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
 
-    run(query)
+    run(query, input_opt, output_opt)
 
 
 if __name__ == "__main__":

@@ -1,77 +1,94 @@
+from click.testing import CliRunner
+import spyql.spyql
+import spyql.log
 from spyql.writer import SpyWriter
 from spyql.processor import SpyProcessor
-from spyql.spyql import run
 from spyql.nulltype import NULL, NullSafeDict
-import spyql.log
+from tabulate import tabulate
 import json
 import csv
 import io
-import pytest
 import sqlite3
 
 
-def get_json_output(capsys):
+def json_output(out):
     return [
         json.loads(line, object_hook=lambda x: NullSafeDict(x))
-        for line in capsys.readouterr().out.splitlines()
+        for line in out.splitlines()
     ]
 
 
-def get_output(capsys, has_header=False):
-    out = capsys.readouterr().out
+def txt_output(out, has_header=False):
     if has_header and out.count("\n") == 1:
-        return ""  # special case when outputs is the header row (output has no data)
-    return out
+        return []  # special case when outputs is the header row (output has no data)
+    return out.splitlines()
 
 
-def list_of_struct2csv_str(vals):
+def list_of_struct2pretty(vals):
     if not vals:
-        return ""
+        return []
+    return (tabulate(vals, headers="keys", tablefmt="simple") + "\n").splitlines()
+
+
+def list_of_struct2csv(vals):
+    if not vals:
+        return []
     out_str = io.StringIO()
     writer = csv.DictWriter(out_str, vals[0].keys())
     writer.writeheader()
     for val in vals:
         writer.writerow(val)
-    return out_str.getvalue()
+    return out_str.getvalue().splitlines()
 
 
-def list_of_struct2py_str(vals):
+def list_of_struct2py(vals):
     if not vals:
-        return ""
+        return []
     header = [str(list(vals[0].keys()))]
     rows = [str(list(val.values())) for val in vals]
-    return "\n".join(header + rows)
+    return header + rows
 
 
-def spy2py_str(lines):
-    return "\n".join(
-        [str(SpyProcessor.unpack_line(line)) for line in lines.splitlines()]
-    )
+def spy2py(lines):
+    return [str(SpyProcessor.unpack_line(line)) for line in lines]
 
 
-def test_myoutput(capsys, monkeypatch):
-    def eq_test_nrows(query, expectation, data=None):
-        if data:
-            monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO json")
-        assert get_json_output(capsys) == expectation
-        if data:
-            monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO csv")
-        assert get_output(capsys, True) == list_of_struct2csv_str(expectation)
-        if data:
-            monkeypatch.setattr("sys.stdin", io.StringIO(data))
-        run(query + " TO spy")
-        assert spy2py_str(get_output(capsys, True)) == list_of_struct2py_str(
-            expectation
-        )
+def run_spyql(query="", options=[], data=None, runner=CliRunner(), exception=True):
+    return runner.invoke(spyql.spyql.main, options + [query], input=data)
 
-    def eq_test_1row(query, expectation, data=None):
-        eq_test_nrows(query, [expectation], data)
 
-    def exception_test(query, anexception):
-        with pytest.raises(anexception):
-            run(query)
+def eq_test_nrows(query, expectation, data=None, options=[]):
+    runner = CliRunner()
+
+    res = run_spyql(query + " TO json", options, data, runner)
+    assert json_output(res.output) == expectation
+    assert res.exit_code == 0
+
+    res = run_spyql(query + " TO csv", options, data, runner)
+    assert txt_output(res.output, True) == list_of_struct2csv(expectation)
+    assert res.exit_code == 0
+
+    res = run_spyql(query + " TO spy", options, data, runner)
+    assert spy2py(txt_output(res.output, True)) == list_of_struct2py(expectation)
+    assert res.exit_code == 0
+
+    res = run_spyql(query + " TO pretty", options, data, runner)
+    assert txt_output(res.output, True) == list_of_struct2pretty(expectation)
+    assert res.exit_code == 0
+
+
+def eq_test_1row(query, expectation, **kwargs):
+    eq_test_nrows(query, [expectation], **kwargs)
+
+
+def exception_test(query, anexception, **kwargs):
+    res = run_spyql(query, **kwargs)
+    assert res.exit_code != 0
+    assert isinstance(res.exception, anexception)
+
+
+######  TESTS  ######
+def test_basic():
 
     ## single column
     # int
@@ -158,7 +175,8 @@ def test_myoutput(capsys, monkeypatch):
         {"calc": 30, "two": 2},
     )
 
-    # NULL
+
+def test_null():
     eq_test_1row("SELECT NULL", {"NULL": NULL})
     eq_test_1row("SELECT NULL+1", {"NULL_1": NULL})
     eq_test_1row("SELECT int('')", {"int": NULL})
@@ -167,10 +185,27 @@ def test_myoutput(capsys, monkeypatch):
     eq_test_1row("SELECT nullif(1,1)", {"nullif_1_1": NULL})
     eq_test_1row("SELECT nullif(3,2)", {"nullif_3_2": 3})
 
+
+def test_processors():
     # JSON input and NULLs
     eq_test_1row("SELECT json->a FROM json", {"a": 1}, data='{"a": 1}\n')
     eq_test_1row("SELECT json->a FROM json", {"a": NULL}, data='{"a": null}\n')
     eq_test_1row("SELECT json->b FROM json", {"b": NULL}, data='{"a": 1}\n')
+
+    # JSON EXPLODE
+    eq_test_nrows(
+        "SELECT json->a, json->b FROM json EXPLODE json->a",
+        [
+            {"a": 1, "b": "three"},
+            {"a": 2, "b": "three"},
+            {"a": 3, "b": "three"},
+            {"a": 4, "b": "four"},
+        ],
+        data=(
+            '{"a": [1, 2, 3], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
+            ' "four"}\n'
+        ),
+    )
 
     # CSV input and NULLs
     eq_test_nrows(
@@ -182,6 +217,18 @@ def test_myoutput(capsys, monkeypatch):
         "SELECT int(a) as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+    )
+    eq_test_nrows(
+        "SELECT int(a) as a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        options=["-Idelimiter=,"],
+    )
+    eq_test_nrows(
+        "SELECT int(col1) as a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data=",2,3\n4,5,6\noops,8,9",
+        options=["-Idelimiter=,", "-Iheader=False"],
     )
 
     # Text input and NULLs
@@ -233,9 +280,8 @@ def test_myoutput(capsys, monkeypatch):
         ),
     )
 
-    # SQL output
 
-    ## custom syntax
+def test_custom_syntax():
     # easy access to dic fields
     eq_test_1row(
         "SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour,"
@@ -244,7 +290,8 @@ def test_myoutput(capsys, monkeypatch):
         {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"},
     )
 
-    ## Errors
+
+def test_errors():
     # TODO find way to test custom error output
     exception_test("SELECT 2 + ''", TypeError)
     exception_test("SELECT abc", NameError)
@@ -255,22 +302,25 @@ def test_myoutput(capsys, monkeypatch):
     exception_test("WHERE True", SyntaxError)
     exception_test("SELECT 1 TO _this_writer_does_not_exist_", SyntaxError)
     exception_test("SELECT 1 FROM [1,2,,]]", SyntaxError)
+    exception_test("SELECT 1 TO csv", TypeError, options=["-Ounexisting_option=1"])
+    exception_test("SELECT 1 TO plot", TypeError, options=["-Ounexisting_option=1"])
+    exception_test("SELECT 1 FROM csv", TypeError, options=["-Iunexisting_option=1"])
+    exception_test("SELECT 1 FROM spy", TypeError, options=["-Iunexisting_option=1"])
+    exception_test("SELECT 1 TO csv", TypeError, options=["-Odelimiter=bad"])
+    exception_test("SELECT 1 FROM csv", TypeError, options=["-Idelimiter=bad"])
+    exception_test("SELECT 1 TO csv", SystemExit, options=["-Ola"])
+    exception_test("SELECT int('abcde')", ValueError, options=["-Werror"])
+    exception_test("SELECT float('')", ValueError, options=["-Werror"])
+    exception_test("SELECT float('')", ValueError, options=["-Werror"])
 
-    spyql.log.error_on_warning = True
-    exception_test("SELECT int('abcde')", ValueError)
-    spyql.log.error_on_warning = False
 
-    # TODO test explode
-    # TODO test CSV without header
-
-
-def test_sql_output(capsys):
+def test_sql_output():
     """
     Writes to an in memory sqlite DB and reads back to test
     """
     conn = sqlite3.connect(":memory:")
     conn.cursor().execute(
-        """CREATE TABLE table_name(
+        """CREATE TABLE test1(
         aint int,
         afloat numeric(2,1),
         aintnull int,
@@ -280,8 +330,8 @@ def test_sql_output(capsys):
         adict text)
     """
     )
-    run(
-        """
+
+    query = """
         SELECT
             col1 as aint,
             col1/2 + 0.01 as afloat,
@@ -292,10 +342,15 @@ def test_sql_output(capsys):
             {'a':col1, 'a2': col1*2} as adict
         FROM [1,2,3]
         TO sql
-    """
-    )
-    conn.cursor().execute(get_output(capsys))
-    result = conn.cursor().execute("select * from table_name").fetchall()
+        """
+
+    res = run_spyql(query, ["-Otable=test1", "-Ochunk_size=2"])
+    assert res.exit_code == 0
+    for insert_stat in res.output.splitlines():
+        # run inserts from spyql in sqlite
+        conn.cursor().execute(insert_stat)
+
+    result = conn.cursor().execute("select * from test1").fetchall()
     conn.close()
     expectation = [
         (1, 0.51, 100, None, "abc1", "[1, 2, 3]", "{'a': 1, 'a2': 2}"),
@@ -303,3 +358,8 @@ def test_sql_output(capsys):
         (3, 1.51, 100, "hello", "abc3", "[1, 2, 3]", "{'a': 3, 'a2': 6}"),
     ]
     assert expectation == result
+
+
+def test_plot_output():
+    res = run_spyql("SELECT col1 as abc, col1*2 FROM range(20) TO plot")
+    assert res.exit_code == 0  # just checking that it does not break...

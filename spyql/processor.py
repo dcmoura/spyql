@@ -7,6 +7,7 @@ import re
 from math import *
 from collections.abc import Iterable
 from itertools import islice, chain
+from io import StringIO
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
@@ -25,26 +26,29 @@ import pytz
 
 class Processor:
     @staticmethod
-    def make_processor(prs, strings):
+    def make_processor(prs, strings, input_options):
         """
         Factory for making a file processor based on the parsed query
         """
-        processor_name = prs["from"]
-        if not processor_name:
-            return Processor(prs, strings)
+        try:
+            processor_name = prs["from"]
+            if not processor_name:
+                return Processor(prs, strings, **input_options)
 
-        processor_name = processor_name.upper()
+            processor_name = processor_name.upper()
 
-        if processor_name == "JSON":
-            return JSONProcessor(prs, strings)
-        if processor_name == "CSV":
-            return CSVProcessor(prs, strings)
-        if processor_name == "TEXT":  # single col
-            return TextProcessor(prs, strings)
-        if processor_name == "SPY":
-            return SpyProcessor(prs, strings)
+            if processor_name == "JSON":
+                return JSONProcessor(prs, strings, **input_options)
+            if processor_name == "CSV":
+                return CSVProcessor(prs, strings, **input_options)
+            if processor_name == "TEXT":  # single col
+                return TextProcessor(prs, strings, **input_options)
+            if processor_name == "SPY":
+                return SpyProcessor(prs, strings, **input_options)
 
-        return PythonExprProcessor(prs, strings)
+            return PythonExprProcessor(prs, strings, **input_options)
+        except TypeError as e:
+            user_error(f"Could not create '{processor_name}' processor", e)
 
     def __init__(self, prs, strings):
         self.prs = prs  # parsed query
@@ -227,9 +231,9 @@ class Processor:
             )
 
     # main
-    def go(self):
+    def go(self, output_options):
         output_handler = OutputHandler.make_handler(self.prs)
-        writer = Writer.make_writer(self.prs["to"], sys.stdout, {})  # TODO add options
+        writer = Writer.make_writer(self.prs["to"], sys.stdout, output_options)
         output_handler.set_writer(writer)
         nrows_in, nrows_out = self._go(output_handler)
         output_handler.finish()
@@ -355,8 +359,10 @@ class SpyProcessor(Processor):
 
 
 class JSONProcessor(Processor):
-    def __init__(self, prs, strings):
+    def __init__(self, prs, strings, **options):
         super().__init__(prs, strings)
+        jsonlib.loads('{"a": 1}', **options)  # test options
+        self.options = options
         self.translations.update({"json": "_values[0]"})  # first column alias as json
 
     # 1 row = 1 json
@@ -366,38 +372,54 @@ class JSONProcessor(Processor):
         # this might not be the most efficient way of converting None -> NULL, look at:
         # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
         return (
-            [jsonlib.loads(line, object_hook=lambda x: NullSafeDict(x))]
+            [jsonlib.loads(line, object_hook=lambda x: NullSafeDict(x), **self.options)]
             for line in sys.stdin
         )
 
 
 ## CSV
 class CSVProcessor(Processor):
-    def __init__(self, prs, strings):
+    def __init__(self, prs, strings, sample_size=10, header=None, **options):
         super().__init__(prs, strings)
+        self.sample_size = sample_size
+        self.has_header = header
+        self.options = options
+        csv.reader(StringIO("test"), **self.options)  # test options
 
     def get_input_iterator(self):
         # Part 1 reads sample to detect dialect and if has header
         # TODO: infer data type
-        sample_size = 10  # make a input parameter
-        # saves sample
+        # TODO force linedelimiter to be new line char set
+
+        # saves sample to a string
+        # NOTE if dialect is given and type detection is off we should not need a sample
         sample = io.StringIO()
-        for line in list(islice(sys.stdin, sample_size)):  # TODO: support files
+        for line in list(islice(sys.stdin, self.sample_size)):  # TODO: support files
             sample.write(line)
         sample_val = sample.getvalue()
         if not sample_val:
             return []
-        dialect = csv.Sniffer().sniff(sample_val)
-        self.has_header = csv.Sniffer().has_header(sample_val)
+        if not self.options:
+            # CSV dialect and header detection
+            try:
+                self.options = {"dialect": csv.Sniffer().sniff(sample_val)}
+            except Exception as e:
+                user_error("Could not detect CSV dialect from input", e)
+            if self.has_header == None:
+                try:
+                    self.has_header = csv.Sniffer().has_header(sample_val)
+                except Exception as e:
+                    user_error("Could not detect if input CSV has header", e)
+        elif self.has_header == None:
+            self.has_header = True  # default if dialect is not automatically detected
 
         sample.seek(0)  # rewinds the sample
         return chain(
             csv.reader(
-                sample, dialect
+                sample, **self.options
             ),  # goes through sample again (for reading input data)
-            csv.reader(sys.stdin, dialect),
+            csv.reader(sys.stdin, **self.options),
         )  # continues to the rest of the file
-        # TODO: suport files
 
     def reading_data(self):
         return (not self.has_header) or (self.input_col_names)

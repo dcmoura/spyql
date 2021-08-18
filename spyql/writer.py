@@ -11,28 +11,32 @@ from spyql.nulltype import NULL
 class Writer:
     @staticmethod
     def make_writer(writer_name, outputfile, options):
-        if not writer_name:
-            return CSVWriter(outputfile, options)
-        writer_name = writer_name.upper()
-        if writer_name == "CSV":
-            return CSVWriter(outputfile, options)
-        if writer_name == "JSON":
-            return SimpleJSONWriter(outputfile, options)
-        if writer_name == "PRETTY":
-            return PrettyWriter(outputfile, options)
-        if writer_name == "SPY":
-            return SpyWriter(outputfile, options)
-        if writer_name == "SQL":
-            return SQLWriter(outputfile, options)
-        if writer_name == "PLOT":
-            return PlotWriter(outputfile, options)
+        try:
+            if not writer_name:
+                return CSVWriter(outputfile, **options)
+            writer_name = writer_name.upper()
+            if writer_name == "CSV":
+                return CSVWriter(outputfile, **options)
+            if writer_name == "JSON":
+                return SimpleJSONWriter(outputfile, **options)
+            if writer_name == "PRETTY":
+                return PrettyWriter(outputfile, **options)
+            if writer_name == "SPY":
+                return SpyWriter(outputfile, **options)
+            if writer_name == "SQL":
+                return SQLWriter(outputfile, **options)
+            if writer_name == "PLOT":
+                return PlotWriter(outputfile, **options)
+        except TypeError as e:
+            user_error(f"Could not create '{writer_name}' writer", e)
         user_error(
-            "Unknown writer", SyntaxError("Error parsing TO statement"), writer_name
+            f"Unknown writer '{writer_name}'",
+            SyntaxError("Error parsing TO statement"),
+            writer_name,
         )
 
-    def __init__(self, outputfile, options):
+    def __init__(self, outputfile):
         self.outputfile = outputfile
-        self.options = options
 
     def writeheader(self, header):
         self.header = header
@@ -49,13 +53,14 @@ class Writer:
 
 
 class CSVWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
+    def __init__(self, outputfile, header=True, **options):
+        super().__init__(outputfile)
+        self.header_on = header
         self.csv = csv.writer(outputfile, **options)
 
-    # TODO allow specifying output CSV parameters
     def writeheader(self, header):
-        self.csv.writerow(header)
+        if self.header_on:
+            self.csv.writerow(header)
 
     def writerow(self, row):
         self.csv.writerow(row)
@@ -65,15 +70,17 @@ class CSVWriter(Writer):
 
 
 class SimpleJSONWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
+    def __init__(self, outputfile, **options):
+        super().__init__(outputfile)
+        jsonlib.dumps({"a": 1}, **options)  # test options
+        self.options = options
 
     def writerow(self, row):
         self.outputfile.write(self.makerow(row) + "\n")
 
     def makerow(self, row):
         single_dict = (
-            self.header in [["out1"], ["col1"], ["json"]]
+            self.header in [["col1"], ["json"]]
             and len(row) == 1
             and isinstance(row[0], dict)
         )
@@ -83,30 +90,52 @@ class SimpleJSONWriter(Writer):
         )
 
 
-class PrettyWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
+class CollectWriter(Writer):
+    """
+    Abstract writer that collects all records into a (in-memory) list and dumps all
+    the output records at the end.
+    Child classes must implement the `writerows` method.
+    """
+
+    def __init__(self, outputfile):
+        super().__init__(outputfile)
         self.all_rows = []  # needs to store output in memory
-        # TODO force a limit on the output and warn user
 
     def writerow(self, row):
         self.all_rows.append(row)  # accumulates
 
     def writerows(self, rows):
-        # TODO handle default tablefmt
-        self.outputfile.write(
-            tabulate(rows, self.header, tablefmt="simple", **self.options)
-        )
-        self.outputfile.write("\n")
+        raise NotImplementedError
 
     def flush(self):
         if self.all_rows:
             self.writerows(self.all_rows)  # dumps
 
 
-class PlotWriter(PrettyWriter):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
+class PrettyWriter(CollectWriter):
+    def __init__(self, outputfile, header=True, **options):
+        super().__init__(outputfile)
+        tabulate([[1, 2, 3]], **options)  # test options
+        self.header_on = header
+        self.options = options
+
+    def writerows(self, rows):
+        # TODO handle default tablefmt
+        self.outputfile.write(
+            tabulate(
+                rows,
+                self.header if self.header_on else [],
+                **self.options,
+            )
+        )
+        self.outputfile.write("\n")
+
+
+class PlotWriter(CollectWriter):
+    def __init__(self, outputfile, header=True, height=20):
+        super().__init__(outputfile)
+        self.header_on = header
+        self.height = height
 
     def writerows(self, rows):
         colors = [
@@ -117,13 +146,13 @@ class PlotWriter(PrettyWriter):
             chart.green,
             chart.blue,
         ]
-        config = {"height": 20, "colors": colors}
+        config = {"height": self.height, "colors": colors}
 
         # first transpose rows into cols
         cols = list(map(list, zip(*rows)))
 
         self.outputfile.write(chart.plot(cols, config))
-        if self.header:
+        if self.header and self.header_on:
             self.outputfile.write("\n\nLegend: ")
             for i in range(len(self.header)):
                 self.outputfile.write(
@@ -138,8 +167,8 @@ class PlotWriter(PrettyWriter):
 
 
 class SpyWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
+    def __init__(self, outputfile):
+        super().__init__(outputfile)
 
     @staticmethod
     def pack(row):
@@ -154,10 +183,10 @@ class SpyWriter(Writer):
 
 
 class SQLWriter(Writer):
-    def __init__(self, outputfile, options):
-        super().__init__(outputfile, options)
-        self.chunk_size = 10000  # TODO: move to options!
-        self.table_name = "table_name"  # TODO: move to options!
+    def __init__(self, outputfile, chunk_size=1000, table="table_name"):
+        super().__init__(outputfile)
+        self.chunk_size = chunk_size
+        self.table_name = table
         self.chunk = []
 
     def writeheader(self, header):

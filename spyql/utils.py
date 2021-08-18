@@ -17,3 +17,10 @@ def make_str_valid_varname(s):
         s = "_" + s
 
     return s
+
+
+def try2eval(val, globals={}, locals={}):
+    try:
+        return eval(val, globals, locals)
+    except:
+        return val
