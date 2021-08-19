@@ -1,16 +1,3 @@
-# setup:
-# > export PYTHONPATH=/a/dir/spyql/
-# > pip3 install [all the libs :-P]
-#
-# running:
-# > python3 -m spyql.spyql [query]
-#
-# e.g.:
-# > python3 -m spyql.spyql "SELECT 'hello world' TO json"
-#
-# running tests + coverage:
-# > pytest --cov=spyql tests
-
 from spyql.processor import Processor
 from spyql.quotes_handler import QuotesHandler
 import spyql.utils
