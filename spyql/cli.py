@@ -300,7 +300,7 @@ def main(query, warning_flag, verbose, profile, input_opt, output_opt):
         [ WHERE python_expression ]
         [ LIMIT row_count ]
         [ OFFSET num_rows_to_skip ]
-        [ TO csv | json | text | spy | sql | pretty | plot ]
+        [ TO csv | json | spy | sql | pretty | plot ]
     """
 
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")

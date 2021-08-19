@@ -38,7 +38,7 @@ SpyQL also allows you to easily convert between text data formats:
 
 * `FROM`: CSV, JSON, TEXT and Python iterators (YES, you can use a list comprehension as the data source)
 
-* `TO`: CSV, JSON, TEXT, SQL (INSERT statments), pretty terminal printing, and terminal plotting. 
+* `TO`: CSV, JSON, SQL (INSERT statments), pretty terminal printing, and terminal plotting. 
 
 The JSON format is [JSON lines](https://jsonlines.org), where each line has a valid JSON object or array. Piping with [jq](https://stedolan.github.io/jq/) allows SpyQL to handle any JSON input (more on the examples section).
 
@@ -54,16 +54,26 @@ pip install spyql
 
 ### Hello world
 
+To test your installation run on the terminal:
 ```sh
 spyql "SELECT 'Hello world' as Message TO pretty"
 ```
-
-Try replacing the output format to json and csv, and try adding more columns. e.g.
-
-```sh
-spyql "SELECT 'Hello world' as message, 123 as testing TO json"
+Output:
+```
+Message
+-----------
+Hello world
 ```
 
+Try replacing the output format to json and csv, and try adding more columns. e.g. run on the terminal:
+
+```sh
+spyql "SELECT 'Hello world' as message, 1+2 as three TO json"
+```
+Output:
+```json
+{"message": "Hello world", "three": 3}
+```
 
 ## Principles
 
@@ -84,7 +94,7 @@ SELECT
     [ WHERE python_expression ]
     [ LIMIT row_count ]
     [ OFFSET num_rows_to_skip ]
-    [ TO csv | json | text | spy | sql | pretty | plot ]
+    [ TO csv | json | spy | sql | pretty | plot ]
 ```
 
 Comming next: `ORDER BY`, `GROUP BY`, `EXECUTE`
