@@ -27,6 +27,7 @@ setup(
     python_requires=">=3.6",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
+        "Environment :: Console",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
@@ -35,6 +36,8 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Topic :: Text Processing",
+        "Topic :: Utilities",
     ],
     description="SpyQL: SQL with Python in the midle",
     entry_points={
@@ -46,12 +49,16 @@ setup(
     license="MIT license",
     long_description=readme + "\n\n" + history,
     include_package_data=True,
-    keywords="spyql",
+    keywords="sql data csv json",
     name="spyql",
-    packages=find_packages(include=["spyql", "spyql.*", "tests"]),
+    packages=find_packages(include=["spyql", "spyql.*"]),
     test_suite="tests",
     tests_require=test_requirements + requirements,
     url="https://github.com/dcmoura/spyql",
+    project_urls={
+        "Documentation": "https://spyql.readthedocs.io",
+        "Source": "https://github.com/dcmoura/spyql",
+    },
     version="0.1.0",
     zip_safe=False,
 )
