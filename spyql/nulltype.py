@@ -3,7 +3,7 @@
 # Allows getting items so that `a.get('b', NULL).get('c', NULL)`` returns NULL
 #  when `b` does not exist, and `NULL[x]` returns NULL
 
-from spyql.log import *
+import spyql.log
 
 
 class NullType:
@@ -242,13 +242,13 @@ class NullSafeDict(dict):
     def __init__(self, adic, **kwargs):
         super().__init__(
             # converts None -> NULL
-            {k: NULL if v == None else v for k, v in adic.items()},
+            {k: NULL if v is None else v for k, v in adic.items()},
             **kwargs
         )
 
     # returns NULL when key is not found
     def __missing__(self, key):
-        user_warning4func("key not found", KeyError(key), key)
+        spyql.log.user_warning4func("key not found", KeyError(key), key)
         return NULL
 
 
@@ -260,6 +260,7 @@ def coalesce(val, default):
 
 
 ifnull = coalesce  # alias
+
 
 # returns NULL if a equals b otherwise returns a
 def nullif(a, b):
@@ -282,7 +283,7 @@ def float_(a):
     try:
         return float(a)
     except ValueError as e:
-        conversion_warning("float", e, a)
+        spyql.log.conversion_warning("float", e, a)
         return NULL
 
 
@@ -292,7 +293,7 @@ def int_(a, *args, **kwargs):
     try:
         return int(a, *args, **kwargs)
     except ValueError as e:
-        conversion_warning("int", e, a, **kwargs)
+        spyql.log.conversion_warning("int", e, a, **kwargs)
         return NULL
 
 
@@ -302,7 +303,7 @@ def complex_(*args):
     try:
         return complex(*args)
     except ValueError as e:
-        conversion_warning("complex", e, *args)
+        spyql.log.conversion_warning("complex", e, *args)
         return NULL
 
 

@@ -1,29 +1,14 @@
-# setup:
-# > export PYTHONPATH=/a/dir/spyql/
-# > pip3 install [all the libs :-P]
-#
-# running:
-# > python3 -m spyql.spyql [query]
-#
-# e.g.:
-# > python3 -m spyql.spyql "SELECT 'hello world' TO json"
-#
-# running tests + coverage:
-# > pytest --cov=spyql tests
-
-
-from spyql.nulltype import NULL
 from spyql.processor import Processor
 from spyql.quotes_handler import QuotesHandler
 import spyql.utils
 import spyql.log
 import logging
-import sys
 import re
 import click
 
 
 query_struct_keywords = ["select", "from", "explode", "where", "limit", "offset", "to"]
+
 
 # makes sure that queries start with a space (required for parse_structure)
 def clean_query(q):
@@ -43,7 +28,7 @@ def parse_structure(q):
             last_pos = entry[1]
         key_matches.append(entry)
 
-    ## Alternative code where order is not enforced:
+    # # Alternative code where order is not enforced:
     # key_matches = [re.search(fr"\s+{key}\s+", q, re.IGNORECASE) for key in keys]
     # key_matches = [(m.span() if m else None)  for m in key_matches]
 
@@ -291,7 +276,7 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
         [ WHERE python_expression ]
         [ LIMIT row_count ]
         [ OFFSET num_rows_to_skip ]
-        [ TO csv | json | text | spy | sql | pretty | plot ]
+        [ TO csv | json | spy | sql | pretty | plot ]
     """
 
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")

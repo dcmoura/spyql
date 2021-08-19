@@ -1,5 +1,16 @@
-from spyql.nulltype import *
-import pytest
+from spyql.nulltype import (
+    NULL,
+    Null,
+    null,
+    float_,
+    int_,
+    str_,
+    complex_,
+    ifnull,
+    nullif,
+    coalesce,
+    NullSafeDict,
+)
 import numpy as np
 import math
 
@@ -220,7 +231,7 @@ def test_misc():
 def test_dict():
     NullSafeDict({})["abc"] is NULL
     NullSafeDict({"abc": None})["abc"] is NULL
-    NullSafeDict({"abc": None})["abc"] != None  # Attention!
+    NullSafeDict({"abc": None})["abc"] is not None  # Attention!
     NullSafeDict({"abc": 1})["abc"] is not NULL
     NullSafeDict({"abc": "def"})["abc"] is not NULL
     NullSafeDict({})["abc"]["def"]["hij"] is NULL
