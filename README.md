@@ -8,7 +8,6 @@ SQL with Python in the middle
 [![Coverage Status](https://coveralls.io/repos/github/dcmoura/spyql/badge.svg?branch=master)](https://coveralls.io/github/dcmoura/spyql?branch=master)
 [![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![license: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![https://pyup.io/repos/github/dcmoura/spyql/](https://pyup.io/repos/github/dcmoura/spyql/shield.svg)
 
 
 ## Concept
