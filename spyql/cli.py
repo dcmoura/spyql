@@ -256,17 +256,6 @@ def run(query, input_opt={}, output_opt={}):
     ),
 )
 @click.option(
-    "--profile",
-    "-p",
-    "profile",
-    is_flag=True,
-    default=False,
-    help=(
-        "Profile code with cProfile and writes output to the file spyql.stats."
-        " Collecting profiling statistics slows down query execution."
-    ),
-)
-@click.option(
     "--verbose",
     "-v",
     "verbose",
@@ -288,7 +277,7 @@ def run(query, input_opt={}, output_opt={}):
     ),
 )
 @click.version_option(version="0.1.0")
-def main(query, warning_flag, verbose, profile, input_opt, output_opt):
+def main(query, warning_flag, verbose, input_opt, output_opt):
     """
     Tool to run a SpyQL QUERY over text data.
     For more info visit: https://github.com/dcmoura/spyql
@@ -306,12 +295,7 @@ def main(query, warning_flag, verbose, profile, input_opt, output_opt):
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
 
-    if profile:
-        import cProfile
-
-        cProfile.runctx("run(query)", globals(), locals(), "spyql.stats")
-    else:
-        run(query, input_opt, output_opt)
+    run(query, input_opt, output_opt)
 
 
 if __name__ == "__main__":
