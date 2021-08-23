@@ -4,6 +4,11 @@ python:
 - 3.8
 - 3.7
 - 3.6
+os: linux
+arch:
+  - arm64
+  - ppc64le
+  - s390x
 install: 
   - pip install -U tox-travis
 script: 
