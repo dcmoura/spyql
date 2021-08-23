@@ -69,6 +69,7 @@ Ready to contribute? Here's how to set up `spyql` for local development.
     $ mkvirtualenv spyql
     $ cd spyql/
     $ python setup.py develop
+    $ pip install -r requirements_dev.txt
 
 4. Create a branch for local development::
 
