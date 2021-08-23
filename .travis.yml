@@ -5,11 +5,11 @@ python:
 - 3.7
 - 3.6
 install: 
-  pip install -U tox-travis
-  pip install codecov
+  - pip install -U tox-travis
+  - pip install codecov
 script: 
-  tox
-  coverage run --source spyql -m pytest
+  - tox
+  - coverage run --source spyql -m pytest
 after_success:
   codecov
 deploy:
