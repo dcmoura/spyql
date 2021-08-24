@@ -2,8 +2,8 @@
 
 SQL with Python in the middle
 
-![https://pypi.python.org/pypi/spyql](https://img.shields.io/pypi/v/spyql.svg)
-![https://travis-ci.com/dcmoura/spyql](https://img.shields.io/travis/dcmoura/spyql.svg)
+[![https://pypi.python.org/pypi/spyql](https://img.shields.io/pypi/v/spyql.svg)](https://pypi.org/project/spyql/)
+[![https://travis-ci.com/dcmoura/spyql](https://img.shields.io/travis/dcmoura/spyql.svg)](https://pypi.org/project/spyql/)
 [![https://spyql.readthedocs.io/en/latest/?version=latest](https://readthedocs.org/projects/spyql/badge/?version=latest)](https://spyql.readthedocs.io/en/latest/)
 [![codecov](https://codecov.io/gh/dcmoura/spyql/branch/master/graph/badge.svg?token=5C7I7LG814)](https://codecov.io/gh/dcmoura/spyql)
 [![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
