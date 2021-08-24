@@ -24,8 +24,6 @@ class QuotesHandler:
             spans.extend([m.span() for m in re.finditer(quote, query)])
         spans.append((len(query), 0))
 
-        # print(spans)
-
         self.strings = {}
         for i in range(len(spans) - 1):
             if i > 0:
@@ -33,7 +31,7 @@ class QuotesHandler:
                     random.choice(string.ascii_letters)
                     for _ in range(STRING_PLACEHOLDER_LEN)
                 )
-                sid = f"_{sid}_"
+                sid = f"__STR__{sid}__"
                 res.append(sid)
                 self.strings[sid] = query[spans[i][0] + 1 : spans[i][1] - 1]
 
@@ -43,7 +41,7 @@ class QuotesHandler:
 
     @staticmethod
     def string_placeholder_re():
-        return r"\_\w{%d}\_" % (STRING_PLACEHOLDER_LEN)
+        return r"\_\_STR\_\_[a-zA-Z]{%d}\_\_" % (STRING_PLACEHOLDER_LEN)
 
     # replace string placeholders by their actual strings
     def put_strings_back(self, text, quote=True):
