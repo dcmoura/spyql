@@ -2,7 +2,7 @@ import re
 import random
 import string
 
-STRING_PLACEHOLDER_LEN = 32
+STRING_PLACEHOLDER_LEN = 12
 
 
 class QuotesHandler:
@@ -31,7 +31,7 @@ class QuotesHandler:
                     random.choice(string.ascii_letters)
                     for _ in range(STRING_PLACEHOLDER_LEN)
                 )
-                sid = f"__STR__{sid}__"
+                sid = f"__{sid}__"
                 res.append(sid)
                 self.strings[sid] = query[spans[i][0] + 1 : spans[i][1] - 1]
 
@@ -41,12 +41,13 @@ class QuotesHandler:
 
     @staticmethod
     def string_placeholder_re():
-        return r"\_\_STR\_\_[a-zA-Z]{%d}\_\_" % (STRING_PLACEHOLDER_LEN)
+        return r"\_\_[a-zA-Z]{%d}\_\_" % (STRING_PLACEHOLDER_LEN)
 
     # replace string placeholders by their actual strings
     def put_strings_back(self, text, quote=True):
         quote_char = '"' if quote else ""
         sids = {m.group(0) for m in re.finditer(self.string_placeholder_re(), text)}
+        sids = sids.intersection(self.strings)  # eliminate false positives
         for sid in sids:
             text = text.replace(sid, f"{quote_char}{self.strings[sid]}{quote_char}")
         return text
