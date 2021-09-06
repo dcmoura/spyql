@@ -32,6 +32,7 @@ def parse_structure(q):
     # key_matches = [re.search(fr"\s+{key}\s+", q, re.IGNORECASE) for key in keys]
     # key_matches = [(m.span() if m else None)  for m in key_matches]
 
+
     d = {}
     for i in range(len(query_struct_keywords)):
         if not key_matches[i]:
@@ -162,32 +163,17 @@ def parse(query):
 
     prs["select"] = parse_select(prs["select"], strings)
 
-    # TODO generalize
-    if prs["from"]:
-        prs["from"] = make_expr_ready(prs["from"], strings)
+    for clause in set(query_struct_keywords) - {'select', 'limit', 'offset'}:
+        if prs[clause]:
+            prs[clause] = make_expr_ready(prs[clause], strings)
 
-    if prs["explode"]:
-        prs["explode"] = make_expr_ready(prs["explode"], strings)
-
-    if prs["where"]:
-        prs["where"] = make_expr_ready(prs["where"], strings)
-
-    if prs["limit"]:
-        val = prs["limit"]
-        if val.strip().upper() == "ALL":
-            prs["limit"] = None
-        else:
-            val = int(val)
-            prs["limit"] = val if val > 0 else 0
-
-    if prs["offset"]:
-        val = int(prs["offset"])
-        prs["offset"] = val if val > 0 else 0
-
-    if prs["to"]:
-        prs["to"] = make_expr_ready(prs["to"], strings)
-
-    # TO DO: check for special SQL stuff such as in, is, like
+    for clause in {'limit', 'offset'}:
+        if prs[clause]:
+            try:
+                val = int(prs[clause])
+                prs[clause] = val if val > 0 else 0
+            except ValueError:
+                prs[clause] = None
 
     return (prs, strings)
 
