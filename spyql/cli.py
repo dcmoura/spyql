@@ -7,7 +7,16 @@ import re
 import click
 
 
-query_struct_keywords = ["select", "from", "explode", "where", "limit", "offset", "to"]
+query_struct_keywords = [
+    "import",
+    "select",
+    "from",
+    "explode",
+    "where",
+    "limit",
+    "offset",
+    "to",
+]
 
 
 # makes sure that queries start with a space (required for parse_structure)
@@ -31,7 +40,6 @@ def parse_structure(q):
     # # Alternative code where order is not enforced:
     # key_matches = [re.search(fr"\s+{key}\s+", q, re.IGNORECASE) for key in keys]
     # key_matches = [(m.span() if m else None)  for m in key_matches]
-
 
     d = {}
     for i in range(len(query_struct_keywords)):
@@ -70,7 +78,10 @@ def pythonize(s):
     # TODO check for special SQL stuff such as in, is, like
     # s = re.compile(r"([^=<>])={1}([^=])").sub(r"\1==\2", s)
     # DECISION: expressions are PURE python code :-)
-    # eventual exceptions: "IS NULL" by "== None" and "IS NOT NULL ..."
+
+    # make sure the `as` keyword is always lowcase
+    # (currently only needed for imports)
+    s = re.compile(r"\s+AS\s+", re.IGNORECASE).sub(" as ", s)
 
     # easy shortcut for navigating through dics (of dics)
     # e.g.   `json->hello->'planet hearth'` converts into
@@ -163,11 +174,11 @@ def parse(query):
 
     prs["select"] = parse_select(prs["select"], strings)
 
-    for clause in set(query_struct_keywords) - {'select', 'limit', 'offset'}:
+    for clause in set(query_struct_keywords) - {"select", "limit", "offset"}:
         if prs[clause]:
             prs[clause] = make_expr_ready(prs[clause], strings)
 
-    for clause in {'limit', 'offset'}:
+    for clause in {"limit", "offset"}:
         if prs[clause]:
             try:
                 val = int(prs[clause])
@@ -256,6 +267,7 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
     For more info visit: https://github.com/dcmoura/spyql
 
     \b
+    [ IMPORT python_module [ AS identifier ] [, ...] ]
     SELECT
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]

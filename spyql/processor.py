@@ -14,14 +14,10 @@ import spyql.nulltype
 import spyql.log
 from spyql.utils import make_str_valid_varname
 
-# imports for user queries # TODO move to config file
+# imports for user queries (TODO move to a init file that can be edited by the use)
 from datetime import datetime, date, timezone  # noqa: F401
 from spyql.nulltype import *  # noqa
 from math import *  # noqa
-
-
-# TODO need to find some way to add user imports...
-# e.g. ~/.spyql.py file with python code to run at startup
 
 
 class Processor:
@@ -207,6 +203,8 @@ class Processor:
         """
         Evaluates/executes a previously compiled clause
         """
+        if not clause_exprs:
+            return
         cmd = eval if mode == "eval" else exec
         try:
             return cmd(clause_exprs, {}, vars)
@@ -255,6 +253,14 @@ class Processor:
         input_row_number = 0
 
         vars = globals()  # to do: filter out not useful/internal vars
+
+        # import user modules
+        self.eval_clause(
+            "import",
+            self.compile_clause("import", "import {}", mode="exec"),
+            vars,
+            mode="exec",
+        )
 
         # gets user-defined output cols names (with AS alias)
         out_cols_names = [c["name"] for c in self.prs["select"]]
