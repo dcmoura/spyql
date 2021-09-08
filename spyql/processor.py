@@ -14,10 +14,21 @@ import spyql.nulltype
 import spyql.log
 from spyql.utils import make_str_valid_varname
 
-# imports for user queries (TODO move to a init file that can be edited by the use)
-from datetime import datetime, date, timezone  # noqa: F401
-from spyql.nulltype import *  # noqa
-from math import *  # noqa
+
+def init_vars():
+    """Initializes dict of variables for user queries"""
+    vars = dict()
+    # imports for user queries (TODO move to a init file that can be edited by the user
+    # e.g. `os.path.expanduser("~/.spyql.py")`)
+    exec(
+        "from datetime import datetime, date, timezone\n"
+        "from spyql.nulltype import *\n"
+        "from math import *\n",
+        "import re\n",
+        {},
+        vars,
+    )
+    return vars
 
 
 class Processor:
@@ -252,7 +263,7 @@ class Processor:
         row_number = 0
         input_row_number = 0
 
-        vars = globals()  # to do: filter out not useful/internal vars
+        vars = init_vars()
 
         # import user modules
         self.eval_clause(
