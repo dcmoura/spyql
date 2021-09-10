@@ -23,7 +23,7 @@ def init_vars():
     exec(
         "from datetime import datetime, date, timezone\n"
         "from spyql.nulltype import *\n"
-        "from math import *\n",
+        "from math import *\n"
         "import re\n",
         {},
         vars,
