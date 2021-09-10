@@ -4,6 +4,7 @@ import pickle
 import sys
 import io
 import re
+import os
 from collections.abc import Iterable
 from itertools import islice, chain
 from io import StringIO
@@ -18,8 +19,7 @@ from spyql.utils import make_str_valid_varname
 def init_vars():
     """Initializes dict of variables for user queries"""
     vars = dict()
-    # imports for user queries (TODO move to a init file that can be edited by the user
-    # e.g. `os.path.expanduser("~/.spyql.py")`)
+    # imports for user queries (TODO move to ~/.spyql.py when mature)
     exec(
         "from datetime import datetime, date, timezone\n"
         "from spyql.nulltype import *\n"
@@ -28,6 +28,16 @@ def init_vars():
         {},
         vars,
     )
+
+    try:
+        # user defined imports, functions, etc
+        with open(os.path.expanduser("~/.spyql.py")) as f:
+            exec(f.read(), {}, vars)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        spyql.log.user_warning("Could not load ~/.spyql.py", e)
+
     return vars
 
 
