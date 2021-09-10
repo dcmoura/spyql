@@ -176,6 +176,16 @@ def test_basic():
         {"calc": 30, "two": 2},
     )
 
+    # import
+    eq_test_1row(
+        "IMPORT sys SELECT sys.version_info.major AS major_ver", {"major_ver": 3}
+    )
+
+    eq_test_1row(
+        "IMPORT numpy AS np, sys SELECT (np.array([1,2,3])+1).tolist() AS a",
+        {"a": [2, 3, 4]},
+    )
+
 
 def test_null():
     eq_test_1row("SELECT NULL", {"NULL": NULL})
@@ -303,6 +313,7 @@ def test_errors():
     exception_test("WHERE True", SyntaxError)
     exception_test("SELECT 1 TO _this_writer_does_not_exist_", SyntaxError)
     exception_test("SELECT 1 FROM [1,2,,]]", SyntaxError)
+    exception_test("IMPORT _this_module_does_not_exist_ SELECT 1", ModuleNotFoundError)
     exception_test("SELECT 1 TO csv", TypeError, options=["-Ounexisting_option=1"])
     exception_test("SELECT 1 TO plot", TypeError, options=["-Ounexisting_option=1"])
     exception_test("SELECT 1 FROM csv", TypeError, options=["-Iunexisting_option=1"])
