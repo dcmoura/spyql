@@ -43,12 +43,10 @@ def user_warning(message, exception=None, code=None):
     """
     Reports a warning.
     Prints a custom message.
-    If `error_on_warning` is True, raises an exception instead.
+    If `error_on_warning` is True, raises an error instead.
     """
     if error_on_warning:
-        if exception:
-            raise exception
-        raise Exception(message)
+        user_error(message, exception if exception else Exception(message), code)
     logging.warning(mk_user_msg("WARNING", colors.lightyellow, message, code))
 
 
