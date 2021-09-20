@@ -161,7 +161,7 @@ In addition, you can define a python file in your home dir (`~/.spyql.py`) that 
 
 ## Example queries
 
-You can run the following example queries on the terminal:
+You can run the following example queries in the terminal:
 `spyql "the_query" < a_data_file`
 
 Example data files are not provided on most cases.
