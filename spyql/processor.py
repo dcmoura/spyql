@@ -19,7 +19,7 @@ from spyql.utils import make_str_valid_varname
 def init_vars():
     """Initializes dict of variables for user queries"""
     vars = dict()
-    # imports for user queries (TODO move to ~/.spyql.py when mature)
+    # imports for user queries (TODO move to init.py when mature)
     exec(
         "from datetime import datetime, date, timezone\n"
         "from spyql.nulltype import *\n"
@@ -31,12 +31,17 @@ def init_vars():
 
     try:
         # user defined imports, functions, etc
-        with open(os.path.expanduser("~/.spyql.py")) as f:
+        config_home = os.environ.get(
+            "XDG_CONFIG_HOME", os.path.expanduser(os.path.join("~", ".config"))
+        )
+        init_fname = os.path.join(config_home, "spyql", "init.py")
+        with open(init_fname) as f:
             exec(f.read(), {}, vars)
+            spyql.log.user_debug(f"Succesfully loaded {init_fname}")
     except FileNotFoundError:
-        pass
+        spyql.log.user_debug(f"Init file not found: {init_fname}")
     except Exception as e:
-        spyql.log.user_warning("Could not load ~/.spyql.py", e)
+        spyql.log.user_warning(f"Could not load {init_fname}", e)
 
     return vars
 
