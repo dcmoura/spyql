@@ -13,25 +13,26 @@ query_struct_keywords = [
     "from",
     "explode",
     "where",
+    "order by",
     "limit",
     "offset",
     "to",
 ]
 
 
-# makes sure that queries start with a space (required for parse_structure)
 def clean_query(q):
+    """makes sure that queries start with a space (required for parse_structure)"""
     q = " " + q.strip()
     return q
 
 
-# parse the supported keywords, which must follow a given order
 def parse_structure(q):
+    """parse the supported keywords, which must follow a given order"""
     keys = query_struct_keywords
     last_pos = 0
     key_matches = []
     for key in keys:
-        entry = re.compile(fr"\s+{key}\s+", re.IGNORECASE).search(q, last_pos)
+        entry = re.compile(fr"\s+{key}\s+".replace(' ', '\s+'), re.IGNORECASE).search(q, last_pos)
         if entry:
             entry = entry.span()
             last_pos = entry[1]
@@ -58,7 +59,7 @@ def parse_structure(q):
             filter(
                 None,
                 [
-                    re.compile(fr"\s+{k}\s+", re.IGNORECASE).search(q[st:nd])
+                    re.compile(fr"\s+{k}\s+".replace(' ', '\s+'), re.IGNORECASE).search(q[st:nd])
                     for k in keys
                 ],
             )
@@ -66,15 +67,15 @@ def parse_structure(q):
         if misplaced_keys:
             spyql.log.user_error(
                 "could not parse query",
-                SyntaxError(f"misplaced {misplaced_keys[0][0].strip()} clause"),
+                SyntaxError(f"misplaced '{misplaced_keys[0][0].strip()}' clause"),
             )
         d[keys[i]] = q[st:nd]
 
     return d
 
 
-# replaces sql/custom syntax by python syntax
 def pythonize(s):
+    """replaces sql/custom syntax by python syntax"""
     # TODO check for special SQL stuff such as in, is, like
     # s = re.compile(r"([^=<>])={1}([^=])").sub(r"\1==\2", s)
     # DECISION: expressions are PURE python code :-)
@@ -95,7 +96,11 @@ def pythonize(s):
     return s
 
 
-def custom_sel_split(s):
+def split_multi_expr_clause(s):
+    """
+    Transforms "abc, (123 + 1) * 2, f(a,b)" 
+    into ["abc", "(123 + 1) * 2", "f(a,b)"]
+    """
     sin = list(s)
     sep = [-1]
     rb = 0  # ()
@@ -123,11 +128,11 @@ def custom_sel_split(s):
     return parts
 
 
-# divides the select clause into columns and find their names
 def parse_select(sel, strings):
+    """splits the SELECT clause into columns and find their names"""
     # TODO support column alias without AS
 
-    sel = [c.strip() for c in custom_sel_split(sel)]
+    sel = [c.strip() for c in split_multi_expr_clause(sel)]
     new_sel = []
     as_pattern = re.compile(r"\s+AS\s+", re.IGNORECASE)
     for i in range(len(sel)):
@@ -155,13 +160,35 @@ def parse_select(sel, strings):
 
     return new_sel
 
+def parse_orderby(sel, strings):
+    """splits the ORDER BY clause and handles modifiers"""
+    
+    exprs = [e.strip() for e in split_multi_expr_clause(sel)]
+    res = []
+    mod_pattern = re.compile(r"(?:\s+(DESC|ASC))?(?:\s+NULLS\s+(FIRST|LAST)\s*)?$")
+    for i in range(len(exprs)):
+        expr = exprs[i]
+        modifs = re.search(mod_pattern, expr.upper())        
+        rev = 'DESC' in modifs.groups()
+        nulls_first = 'FIRST' in modifs.groups() or (rev and 'LAST' not in modifs.groups())
+        expr = expr[: (modifs.span()[0])] # remove modifiers
+        try: 
+            expr = int(expr) # special case: expression is output column number
+        except ValueError:
+            pass
+        
+        res.append({"expr": expr, "rev": rev, "nulls_first": nulls_first})
+
+    return res
+
+
 
 def make_expr_ready(expr, strings):
     return pythonize(expr).strip()
 
 
-# parse entry point
 def parse(query):
+    """parses the spyql query"""
     strings = QuotesHandler()
     query = strings.extract_strings(query)
 
@@ -174,10 +201,14 @@ def parse(query):
 
     prs["select"] = parse_select(prs["select"], strings)
 
-    for clause in set(query_struct_keywords) - {"select", "limit", "offset"}:
+    for clause in set(query_struct_keywords) - {"select", "limit", "offset", "order by"}:
         if prs[clause]:
             prs[clause] = make_expr_ready(prs[clause], strings)
 
+    for clause in {"order by"}:
+        if prs[clause]:
+            prs[clause] = parse_orderby(prs[clause], strings)
+            
     for clause in {"limit", "offset"}:
         if prs[clause]:
             try:
@@ -272,6 +303,8 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
         [ WHERE python_expression ]
+        [ ORDER BY output_column_number | python_expression 
+            [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
         [ LIMIT row_count ]
         [ OFFSET num_rows_to_skip ]
         [ TO csv | json | spy | sql | pretty | plot ]
