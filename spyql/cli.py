@@ -7,7 +7,16 @@ import re
 import click
 
 
-query_struct_keywords = ["select", "from", "explode", "where", "limit", "offset", "to"]
+query_struct_keywords = [
+    "import",
+    "select",
+    "from",
+    "explode",
+    "where",
+    "limit",
+    "offset",
+    "to",
+]
 
 
 # makes sure that queries start with a space (required for parse_structure)
@@ -69,7 +78,10 @@ def pythonize(s):
     # TODO check for special SQL stuff such as in, is, like
     # s = re.compile(r"([^=<>])={1}([^=])").sub(r"\1==\2", s)
     # DECISION: expressions are PURE python code :-)
-    # eventual exceptions: "IS NULL" by "== None" and "IS NOT NULL ..."
+
+    # make sure the `as` keyword is always lowcase
+    # (currently only needed for imports)
+    s = re.compile(r"\s+AS\s+", re.IGNORECASE).sub(" as ", s)
 
     # easy shortcut for navigating through dics (of dics)
     # e.g.   `json->hello->'planet hearth'` converts into
@@ -162,32 +174,17 @@ def parse(query):
 
     prs["select"] = parse_select(prs["select"], strings)
 
-    # TODO generalize
-    if prs["from"]:
-        prs["from"] = make_expr_ready(prs["from"], strings)
+    for clause in set(query_struct_keywords) - {"select", "limit", "offset"}:
+        if prs[clause]:
+            prs[clause] = make_expr_ready(prs[clause], strings)
 
-    if prs["explode"]:
-        prs["explode"] = make_expr_ready(prs["explode"], strings)
-
-    if prs["where"]:
-        prs["where"] = make_expr_ready(prs["where"], strings)
-
-    if prs["limit"]:
-        val = prs["limit"]
-        if val.strip().upper() == "ALL":
-            prs["limit"] = None
-        else:
-            val = int(val)
-            prs["limit"] = val if val > 0 else 0
-
-    if prs["offset"]:
-        val = int(prs["offset"])
-        prs["offset"] = val if val > 0 else 0
-
-    if prs["to"]:
-        prs["to"] = make_expr_ready(prs["to"], strings)
-
-    # TO DO: check for special SQL stuff such as in, is, like
+    for clause in {"limit", "offset"}:
+        if prs[clause]:
+            try:
+                val = int(prs[clause])
+                prs[clause] = val if val > 0 else 0
+            except ValueError:
+                prs[clause] = None
 
     return (prs, strings)
 
@@ -270,6 +267,7 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
     For more info visit: https://github.com/dcmoura/spyql
 
     \b
+    [ IMPORT python_module [ AS identifier ] [, ...] ]
     SELECT
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]

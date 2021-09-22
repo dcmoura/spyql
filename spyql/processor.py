@@ -4,6 +4,7 @@ import pickle
 import sys
 import io
 import re
+import os
 from collections.abc import Iterable
 from itertools import islice, chain
 from io import StringIO
@@ -14,14 +15,35 @@ import spyql.nulltype
 import spyql.log
 from spyql.utils import make_str_valid_varname
 
-# imports for user queries # TODO move to config file
-from datetime import datetime, date, timezone  # noqa: F401
-from spyql.nulltype import *  # noqa
-from math import *  # noqa
 
+def init_vars():
+    """Initializes dict of variables for user queries"""
+    vars = dict()
+    # imports for user queries (TODO move to init.py when mature)
+    exec(
+        "from datetime import datetime, date, timezone\n"
+        "from spyql.nulltype import *\n"
+        "from math import *\n"
+        "import re\n",
+        {},
+        vars,
+    )
 
-# TODO need to find some way to add user imports...
-# e.g. ~/.spyql.py file with python code to run at startup
+    try:
+        # user defined imports, functions, etc
+        config_home = os.environ.get(
+            "XDG_CONFIG_HOME", os.path.expanduser(os.path.join("~", ".config"))
+        )
+        init_fname = os.path.join(config_home, "spyql", "init.py")
+        with open(init_fname) as f:
+            exec(f.read(), {}, vars)
+            spyql.log.user_debug(f"Succesfully loaded {init_fname}")
+    except FileNotFoundError:
+        spyql.log.user_debug(f"Init file not found: {init_fname}")
+    except Exception as e:
+        spyql.log.user_warning(f"Could not load {init_fname}", e)
+
+    return vars
 
 
 class Processor:
@@ -207,6 +229,8 @@ class Processor:
         """
         Evaluates/executes a previously compiled clause
         """
+        if not clause_exprs:
+            return
         cmd = eval if mode == "eval" else exec
         try:
             return cmd(clause_exprs, {}, vars)
@@ -254,7 +278,15 @@ class Processor:
         row_number = 0
         input_row_number = 0
 
-        vars = globals()  # to do: filter out not useful/internal vars
+        vars = init_vars()
+
+        # import user modules
+        self.eval_clause(
+            "import",
+            self.compile_clause("import", "import {}", mode="exec"),
+            vars,
+            mode="exec",
+        )
 
         # gets user-defined output cols names (with AS alias)
         out_cols_names = [c["name"] for c in self.prs["select"]]
