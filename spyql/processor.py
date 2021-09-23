@@ -156,6 +156,11 @@ class Processor:
         if expr == "*":
             return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
 
+        if isinstance(
+            expr, int
+        ):  # special case: expression is out col number (1-based)
+            return [f"_res[{expr-1}]"]
+
         for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
             expr = re.compile(pattern).sub(replacement, expr)
@@ -166,7 +171,7 @@ class Processor:
         """
         True if clause can only have a single expression
         """
-        return clause not in ["select"]
+        return clause not in {"select", "order by"}
 
     def compile_clause(self, clause, clause_modifier=None, mode="eval"):
         """
@@ -263,10 +268,10 @@ class Processor:
         output_handler = OutputHandler.make_handler(self.prs)
         writer = Writer.make_writer(self.prs["to"], sys.stdout, output_options)
         output_handler.set_writer(writer)
-        nrows_in, nrows_out = self._go(output_handler)
+        nrows_in = self._go(output_handler)
         output_handler.finish()
         spyql.log.user_info("#rows  in", nrows_in)
-        spyql.log.user_info("#rows out", nrows_out)
+        spyql.log.user_info("#rows out", output_handler.rows_written)
 
     def _go(self, output_handler):
         select_expr = []
@@ -274,7 +279,10 @@ class Processor:
         explode_expr = None
         explode_cmd = None
         explode_its = [None]  # 1 element by default (no explosion)
+        orderby_expr = None
         _values = []
+        _res = []
+        _sort_res = []
         row_number = 0
         input_row_number = 0
 
@@ -309,11 +317,12 @@ class Processor:
                     self.make_out_cols_names(out_cols_names)
                 )
                 if output_handler.is_done():
-                    return (0, 0)  # in case of `limit 0`
+                    return 0  # in case of `limit 0`
 
                 select_expr = self.compile_clause("select")
                 where_expr = self.compile_clause("where")
                 explode_expr = self.compile_clause("explode")
+                orderby_expr = self.compile_clause("order by")
 
             if explode_expr:
                 explode_its = self.eval_clause("explode", explode_expr, vars)
@@ -336,16 +345,18 @@ class Processor:
 
                     # calculate outputs
                     _res = self.eval_clause("select", select_expr, vars)
+                    if orderby_expr:
+                        vars["_res"] = _res
+                        _sort_res = self.eval_clause("order by", orderby_expr, vars)
 
-                    output_handler.handle_result(_res)  # deal with output
-                    if output_handler.is_done():
+                    is_done = output_handler.handle_result(
+                        _res, _sort_res
+                    )  # deal with output
+                    if is_done:
                         # e.g. when reached limit
-                        return (
-                            input_row_number - (1 if self.has_header else 0),
-                            row_number,
-                        )
+                        return input_row_number - (1 if self.has_header else 0)
 
-        return (input_row_number - (1 if self.has_header else 0), row_number)
+        return input_row_number - (1 if self.has_header else 0)
 
 
 class PythonExprProcessor(Processor):

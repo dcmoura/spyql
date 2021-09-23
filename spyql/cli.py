@@ -32,7 +32,9 @@ def parse_structure(q):
     last_pos = 0
     key_matches = []
     for key in keys:
-        entry = re.compile(fr"\s+{key}\s+".replace(' ', '\s+'), re.IGNORECASE).search(q, last_pos)
+        entry = re.compile(fr"\s+{key}\s+".replace(" ", "\s+"), re.IGNORECASE).search(
+            q, last_pos
+        )
         if entry:
             entry = entry.span()
             last_pos = entry[1]
@@ -59,7 +61,9 @@ def parse_structure(q):
             filter(
                 None,
                 [
-                    re.compile(fr"\s+{k}\s+".replace(' ', '\s+'), re.IGNORECASE).search(q[st:nd])
+                    re.compile(fr"\s+{k}\s+".replace(" ", "\s+"), re.IGNORECASE).search(
+                        q[st:nd]
+                    )
                     for k in keys
                 ],
             )
@@ -98,7 +102,7 @@ def pythonize(s):
 
 def split_multi_expr_clause(s):
     """
-    Transforms "abc, (123 + 1) * 2, f(a,b)" 
+    Transforms "abc, (123 + 1) * 2, f(a,b)"
     into ["abc", "(123 + 1) * 2", "f(a,b)"]
     """
     sin = list(s)
@@ -160,27 +164,29 @@ def parse_select(sel, strings):
 
     return new_sel
 
+
 def parse_orderby(sel, strings):
     """splits the ORDER BY clause and handles modifiers"""
-    
+
     exprs = [e.strip() for e in split_multi_expr_clause(sel)]
     res = []
     mod_pattern = re.compile(r"(?:\s+(DESC|ASC))?(?:\s+NULLS\s+(FIRST|LAST)\s*)?$")
     for i in range(len(exprs)):
         expr = exprs[i]
-        modifs = re.search(mod_pattern, expr.upper())        
-        rev = 'DESC' in modifs.groups()
-        nulls_first = 'FIRST' in modifs.groups() or (rev and 'LAST' not in modifs.groups())
-        expr = expr[: (modifs.span()[0])] # remove modifiers
-        try: 
-            expr = int(expr) # special case: expression is output column number
+        modifs = re.search(mod_pattern, expr.upper())
+        rev = "DESC" in modifs.groups()
+        rev_nulls = ((not rev) and "FIRST" in modifs.groups()) or (
+            rev and "LAST" in modifs.groups()
+        )
+        expr = expr[: (modifs.span()[0])]  # remove modifiers
+        try:
+            expr = int(expr)  # special case: expression is output column number
         except ValueError:
             pass
-        
-        res.append({"expr": expr, "rev": rev, "nulls_first": nulls_first})
+
+        res.append({"expr": expr, "rev": rev, "rev_nulls": rev_nulls})
 
     return res
-
 
 
 def make_expr_ready(expr, strings):
@@ -201,14 +207,19 @@ def parse(query):
 
     prs["select"] = parse_select(prs["select"], strings)
 
-    for clause in set(query_struct_keywords) - {"select", "limit", "offset", "order by"}:
+    for clause in set(query_struct_keywords) - {
+        "select",
+        "limit",
+        "offset",
+        "order by",
+    }:
         if prs[clause]:
             prs[clause] = make_expr_ready(prs[clause], strings)
 
     for clause in {"order by"}:
         if prs[clause]:
             prs[clause] = parse_orderby(prs[clause], strings)
-            
+
     for clause in {"limit", "offset"}:
         if prs[clause]:
             try:
@@ -303,7 +314,7 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
         [ WHERE python_expression ]
-        [ ORDER BY output_column_number | python_expression 
+        [ ORDER BY output_column_number | python_expression
             [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
         [ LIMIT row_count ]
         [ OFFSET num_rows_to_skip ]
