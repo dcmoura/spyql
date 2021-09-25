@@ -32,7 +32,7 @@ def parse_structure(q):
     last_pos = 0
     key_matches = []
     for key in keys:
-        entry = re.compile(fr"\s+{key}\s+".replace(" ", "\s+"), re.IGNORECASE).search(
+        entry = re.compile(fr"\s+{key}\s+".replace(" ", r"\s+"), re.IGNORECASE).search(
             q, last_pos
         )
         if entry:
@@ -61,9 +61,9 @@ def parse_structure(q):
             filter(
                 None,
                 [
-                    re.compile(fr"\s+{k}\s+".replace(" ", "\s+"), re.IGNORECASE).search(
-                        q[st:nd]
-                    )
+                    re.compile(
+                        fr"\s+{k}\s+".replace(" ", r"\s+"), re.IGNORECASE
+                    ).search(q[st:nd])
                     for k in keys
                 ],
             )
@@ -165,10 +165,10 @@ def parse_select(sel, strings):
     return new_sel
 
 
-def parse_orderby(sel, strings):
+def parse_orderby(clause, strings):
     """splits the ORDER BY clause and handles modifiers"""
 
-    exprs = [e.strip() for e in split_multi_expr_clause(sel)]
+    exprs = [e.strip() for e in split_multi_expr_clause(clause)]
     res = []
     mod_pattern = re.compile(r"(?:\s+(DESC|ASC))?(?:\s+NULLS\s+(FIRST|LAST)\s*)?$")
     for i in range(len(exprs)):
@@ -182,7 +182,7 @@ def parse_orderby(sel, strings):
         try:
             expr = int(expr)  # special case: expression is output column number
         except ValueError:
-            pass
+            expr = make_expr_ready(expr, strings)
 
         res.append({"expr": expr, "rev": rev, "rev_nulls": rev_nulls})
 
