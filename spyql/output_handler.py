@@ -3,9 +3,14 @@ from spyql.nulltype import Null
 
 
 class OutputHandler:
+    """Mediates data processing with data writting"""
+
     @staticmethod
     def make_handler(prs):
         if prs["order by"]:
+            # TODO otimisation: use special handler that only keeps the top n elements
+            #   in memory when LIMIT is defined
+            # TODO group by handler
             return DelayedOutSortAtEnd(prs["order by"], prs["limit"], prs["offset"])
         return LineInLineOut(prs["limit"], prs["offset"])
 
@@ -36,6 +41,8 @@ class OutputHandler:
 
 
 class LineInLineOut(OutputHandler):
+    """Simple handler that immediatly writes every processed row"""
+
     def handle_result(self, result, sort_keys=None):
         self.write(result)
         return self.is_done()
@@ -45,6 +52,11 @@ class LineInLineOut(OutputHandler):
 
 
 class DelayedOutSortAtEnd(OutputHandler):
+    """
+    Only writes after collecting and sorting all data.
+    Temporary implementation that reads every processed row into memory.
+    """
+
     def __init__(self, orderby, limit, offset):
         super().__init__(limit, offset)
         self.orderby = orderby
@@ -55,9 +67,12 @@ class DelayedOutSortAtEnd(OutputHandler):
 
     def handle_result(self, result, sort_keys=None):
         self.output_rows.append({"data": result, "sort_keys": sort_keys})
+        # TODO use temporary files to write `output_rows` whenever it gets too large
+        # TODO sort intermediate results before writing to a temporary file
         return False  # no premature endings here
 
     def finish(self):
+        # TODO read and merge previously sorted temporary files (look into heapq.merge)
         for i in reversed(range(len(self.orderby))):
             self.output_rows.sort(
                 key=lambda row: (
@@ -67,9 +82,10 @@ class DelayedOutSortAtEnd(OutputHandler):
                 reverse=self.orderby[i]["rev"],
             )
         for row in self.output_rows:
-            # it would be more efficient to slice the output_rows list based on limit and offset
-            # however, this is more generic with less repeated logic and it is a temporary implementation
+            # it would be more efficient to slice `output_rows` based on limit/offset
+            # however, this is more generic with less repeated logic and this is a
+            # temporary implementation
             if self.is_done():
                 break
-            self.write(row['data'])
+            self.write(row["data"])
         super().finish()
