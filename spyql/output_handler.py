@@ -73,14 +73,19 @@ class DelayedOutSortAtEnd(OutputHandler):
 
     def finish(self):
         # TODO read and merge previously sorted temporary files (look into heapq.merge)
+        # 1. sorts everything
         for i in reversed(range(len(self.orderby))):
+            # taking advange of list.sort() being stable to sort elememts from minor to
+            # major criteria (not be the most efficient way but it is straightforward)
             self.output_rows.sort(
                 key=lambda row: (
+                    # handle of NULLs based on NULLS FIRST/LAST specification
                     (row["sort_keys"][i] is Null) != self.orderby[i]["rev_nulls"],
                     row["sort_keys"][i],
                 ),
-                reverse=self.orderby[i]["rev"],
+                reverse=self.orderby[i]["rev"],  # handles ASC/DESC order
             )
+        # 2. writes sorted rows to output
         for row in self.output_rows:
             # it would be more efficient to slice `output_rows` based on limit/offset
             # however, this is more generic with less repeated logic and this is a
