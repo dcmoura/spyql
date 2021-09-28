@@ -13,6 +13,7 @@ query_struct_keywords = [
     "from",
     "explode",
     "where",
+    "group by",
     "order by",
     "limit",
     "offset",
@@ -136,43 +137,39 @@ def parse_select(sel, strings):
     """splits the SELECT clause into columns and find their names"""
     # TODO support column alias without AS
 
-    sel = [c.strip() for c in split_multi_expr_clause(sel)]
-    new_sel = []
+    res = []
     as_pattern = re.compile(r"\s+AS\s+", re.IGNORECASE)
-    for i in range(len(sel)):
-        c = sel[i]
-        sas = re.search(as_pattern, c)
+    for expr in split_multi_expr_clause(sel):
+        sas = re.search(as_pattern, expr)
         name = ""
         if sas:
-            name = c[(sas.span()[1]) :].strip()
-            c = c[: (sas.span()[0])]
+            name = expr[(sas.span()[1]) :].strip()
+            expr = expr[: (sas.span()[0])]
         else:
             # automatic output column name from expresopm
             # removes json 'variable' reference (visual garbage)
-            name = re.compile(r"(\s|^)json(->|\[)").sub(r"\1", c)
+            name = re.compile(r"(\s|^)json(->|\[)").sub(r"\1", expr)
             # makes the string a valid python variable name
             name = spyql.utils.make_str_valid_varname(strings.put_strings_back(name))
 
-        if c.strip() == "*":
-            c = "*"
+        if expr.strip() == "*":
+            expr = "*"
             name = "*"
         else:
             name = strings.put_strings_back(name, quote=False)
-            c = f"{make_expr_ready(c, strings)}"
+            expr = f"{make_expr_ready(expr, strings)}"
 
-        new_sel.append({"name": name, "expr": c})
+        res.append({"name": name, "expr": expr})
 
-    return new_sel
+    return res
 
 
 def parse_orderby(clause, strings):
     """splits the ORDER BY clause and handles modifiers"""
 
-    exprs = [e.strip() for e in split_multi_expr_clause(clause)]
     res = []
     mod_pattern = re.compile(r"(?:\s+(DESC|ASC))?(?:\s+NULLS\s+(FIRST|LAST)\s*)?$")
-    for i in range(len(exprs)):
-        expr = exprs[i]
+    for expr in split_multi_expr_clause(clause):
         modifs = re.search(mod_pattern, expr.upper())
         rev = "DESC" in modifs.groups()
         rev_nulls = ((not rev) and "FIRST" in modifs.groups()) or (
@@ -185,6 +182,20 @@ def parse_orderby(clause, strings):
             expr = make_expr_ready(expr, strings)
 
         res.append({"expr": expr, "rev": rev, "rev_nulls": rev_nulls})
+
+    return res
+
+
+def parse_groupby(clause, strings):
+    """splits the GROUP BY clause"""
+
+    res = []
+    for expr in split_multi_expr_clause(clause):
+        try:
+            expr = int(expr)  # special case: expression is output column number
+        except ValueError:
+            expr = make_expr_ready(expr, strings)
+        res.append({"expr": expr})
 
     return res
 
@@ -211,10 +222,15 @@ def parse(query):
         "select",
         "limit",
         "offset",
+        "group by",
         "order by",
     }:
         if prs[clause]:
             prs[clause] = make_expr_ready(prs[clause], strings)
+
+    for clause in {"group by"}:
+        if prs[clause]:
+            prs[clause] = parse_groupby(prs[clause], strings)
 
     for clause in {"order by"}:
         if prs[clause]:

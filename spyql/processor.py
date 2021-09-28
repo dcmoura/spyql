@@ -14,6 +14,7 @@ from spyql.output_handler import OutputHandler
 import spyql.nulltype
 import spyql.log
 from spyql.utils import make_str_valid_varname
+import spyql.agg
 
 
 def init_vars():
@@ -23,6 +24,7 @@ def init_vars():
     exec(
         "from datetime import datetime, date, timezone\n"
         "from spyql.nulltype import *\n"
+        "from spyql.agg import *\n"
         "from math import *\n"
         "import re\n",
         {},
@@ -147,7 +149,7 @@ class Processor:
         """
         return f"col{idx+1}"
 
-    def prepare_expression(self, expr):
+    def prepare_expression(self, expr, copy_select_refs=False):
         """
         Replaces identifiers (column names) in sql expressions by references to
         `_values` and put (quoted) strings back
@@ -155,10 +157,11 @@ class Processor:
         if expr == "*":
             return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
 
-        if isinstance(
-            expr, int
-        ):  # special case: expression is out col number (1-based)
-            return [f"_res[{expr-1}]"]
+        if isinstance(expr, int):
+            # special case: expression is out col number (1-based)
+            if not copy_select_refs:  # reuses existing result
+                return [f"_res[{expr-1}]"]
+            expr = self.prs["select"][expr - 1]["expr"]
 
         for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
@@ -170,11 +173,17 @@ class Processor:
         """
         True if clause can only have a single expression
         """
-        return clause not in {"select", "order by"}
+        return clause not in {
+            "select",
+            "group by",
+            "order by",
+        }
 
-    def compile_clause(self, clause, clause_modifier=None, mode="eval"):
+    def compile_clause(
+        self, clause, clause_modifier=None, mode="eval", copy_select_refs=False
+    ):
         """
-        Compiles a clause of the select statment
+        Compiles a clause of the query
         """
         prs_clause = self.prs[clause]
         if not prs_clause:
@@ -186,7 +195,7 @@ class Processor:
         single = self.is_clause_single(clause)
         clause_exprs = None
         if single:  # a clause with a single expression like WHERE
-            clause_exprs = self.prepare_expression(prs_clause)
+            clause_exprs = self.prepare_expression(prs_clause, copy_select_refs)
             if len(clause_exprs) > 1:
                 spyql.log.user_error(
                     f"could not compile {clause.upper()} clause",
@@ -197,7 +206,9 @@ class Processor:
                 )
             clause_exprs = clause_exprs[0]
         else:  # a clause with multiple expressions like SELECT
-            clause_exprs = [self.prepare_expression(c["expr"]) for c in prs_clause]
+            clause_exprs = [
+                self.prepare_expression(c["expr"], copy_select_refs) for c in prs_clause
+            ]
             clause_exprs = [
                 item for sublist in clause_exprs for item in sublist
             ]  # flatten (because of '*')
@@ -275,14 +286,16 @@ class Processor:
         spyql.log.user_info("#rows out", output_handler.rows_written)
 
     def _go(self, output_handler):
-        select_expr = []
+        select_expr = None
         where_expr = None
         explode_expr = None
         explode_cmd = None
         explode_its = [None]  # 1 element by default (no explosion)
+        groupby_expr = None
         orderby_expr = None
         _values = []
         _res = []
+        _group_res = []
         _sort_res = []
         row_number = 0
         input_row_number = 0
@@ -311,7 +324,7 @@ class Processor:
                 continue
 
             # print header
-            if not select_expr:  # 1st input data row
+            if select_expr is None:  # 1st input data row
                 self.handle_1st_data_row(_values)
                 output_handler.writer.writeheader(
                     self.make_out_cols_names(out_cols_names)
@@ -322,6 +335,9 @@ class Processor:
                 select_expr = self.compile_clause("select")
                 where_expr = self.compile_clause("where")
                 explode_expr = self.compile_clause("explode")
+                # in group by, refs to output columns are replaced by the select
+                # expressions. This is redundat but makes implmentation straightforward
+                groupby_expr = self.compile_clause("group by", copy_select_refs=True)
                 orderby_expr = self.compile_clause("order by")
 
             if explode_expr:
@@ -343,14 +359,26 @@ class Processor:
                     row_number = row_number + 1
                     self.vars["row_number"] = row_number
 
+                    if groupby_expr:
+                        # group by can ref output columns, but does not depend on the
+                        # executation of the select clause: refs to ouput columns are
+                        # replaced by the correspondent expression
+                        _group_res = tuple(self.eval_clause("group by", groupby_expr))
+                        # we need to set the group key before running select because
+                        # aggregate functions need to know the group key beforehand
+                        spyql.agg.start_new_agg_row(_group_res)
+
                     # calculate outputs
                     _res = self.eval_clause("select", select_expr)
+
                     if orderby_expr:
+                        # in the order by clause, references to output columns use the
+                        # outputs of the evaluation of the select expression
                         self.vars["_res"] = _res
                         _sort_res = self.eval_clause("order by", orderby_expr)
 
                     is_done = output_handler.handle_result(
-                        _res, _sort_res
+                        _res, _sort_res, _group_res
                     )  # deal with output
                     if is_done:
                         # e.g. when reached limit

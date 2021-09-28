@@ -7,10 +7,17 @@ class OutputHandler:
 
     @staticmethod
     def make_handler(prs):
+        """
+        Chooses the right handler depending on the kind of query
+        and eventual optimisation opportunities
+        """
+        if prs["group by"]:
+            return GroupByDelayedOutSortAtEnd(
+                prs["order by"], prs["limit"], prs["offset"]
+            )
         if prs["order by"]:
             # TODO otimisation: use special handler that only keeps the top n elements
             #   in memory when LIMIT is defined
-            # TODO group by handler
             return DelayedOutSortAtEnd(prs["order by"], prs["limit"], prs["offset"])
         return LineInLineOut(prs["limit"], prs["offset"])
 
@@ -22,8 +29,10 @@ class OutputHandler:
     def set_writer(self, writer):
         self.writer = writer
 
-    def handle_result(self, result, sort_keys=None):
-        # to be implemented by child classes
+    def handle_result(self, result, group_key, sort_keys):
+        """
+        To be implemented by child classes to handle a new output row (aka result)
+        """
         return self.is_done()
 
     def is_done(self):
@@ -43,7 +52,7 @@ class OutputHandler:
 class LineInLineOut(OutputHandler):
     """Simple handler that immediatly writes every processed row"""
 
-    def handle_result(self, result, sort_keys=None):
+    def handle_result(self, result, *_):
         self.write(result)
         return self.is_done()
 
@@ -61,11 +70,13 @@ class DelayedOutSortAtEnd(OutputHandler):
         super().__init__(limit, offset)
         self.orderby = orderby
         self.output_rows = []
-        spyql.log.user_info(
-            "Current implementation of ORDER BY loads all output records into memory"
-        )
+        if orderby:
+            spyql.log.user_info(
+                "Current implementation of ORDER BY loads all output records into"
+                " memory"
+            )
 
-    def handle_result(self, result, sort_keys=None):
+    def handle_result(self, result, sort_keys, *_):
         self.output_rows.append({"data": result, "sort_keys": sort_keys})
         # TODO use temporary files to write `output_rows` whenever it gets too large
         # TODO sort intermediate results before writing to a temporary file
@@ -74,17 +85,18 @@ class DelayedOutSortAtEnd(OutputHandler):
     def finish(self):
         # TODO read and merge previously sorted temporary files (look into heapq.merge)
         # 1. sorts everything
-        for i in reversed(range(len(self.orderby))):
-            # taking advange of list.sort() being stable to sort elememts from minor to
-            # major criteria (not be the most efficient way but it is straightforward)
-            self.output_rows.sort(
-                key=lambda row: (
-                    # handle of NULLs based on NULLS FIRST/LAST specification
-                    (row["sort_keys"][i] is Null) != self.orderby[i]["rev_nulls"],
-                    row["sort_keys"][i],
-                ),
-                reverse=self.orderby[i]["rev"],  # handles ASC/DESC order
-            )
+        if self.orderby:
+            for i in reversed(range(len(self.orderby))):
+                # taking advange of list.sort() being stable to sort elememts from minor
+                # to major criteria (not be the most efficient way but straightforward)
+                self.output_rows.sort(
+                    key=lambda row: (
+                        # handle of NULLs based on NULLS FIRST/LAST specification
+                        (row["sort_keys"][i] is Null) != self.orderby[i]["rev_nulls"],
+                        row["sort_keys"][i],
+                    ),
+                    reverse=self.orderby[i]["rev"],  # handles ASC/DESC order
+                )
         # 2. writes sorted rows to output
         for row in self.output_rows:
             # it would be more efficient to slice `output_rows` based on limit/offset
@@ -93,4 +105,26 @@ class DelayedOutSortAtEnd(OutputHandler):
             if self.is_done():
                 break
             self.write(row["data"])
+        super().finish()
+
+
+class GroupByDelayedOutSortAtEnd(DelayedOutSortAtEnd):
+    """
+    Alters `DelayedOutSortAtEnd` to only store intermediate group by results instead of
+    keeping all rows in mmemory
+    """
+
+    def __init__(self, orderby, limit, offset):
+        super().__init__(orderby, limit, offset)
+        self.output_rows = dict()
+        spyql.log.user_info("Current implementation of GROUP BY is in-memory")
+
+    def handle_result(self, result, sort_keys, group_key):
+        # uses a dict to store intermidiate group by results instead of storing all rows
+        self.output_rows[group_key] = {"data": result, "sort_keys": sort_keys}
+        return False  # no premature endings here
+
+    def finish(self):
+        # converts output_rows dict to list so that it can be sorted and written
+        self.output_rows = list(self.output_rows.values())
         super().finish()
