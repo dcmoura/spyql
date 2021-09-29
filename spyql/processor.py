@@ -149,7 +149,7 @@ class Processor:
         """
         return f"col{idx+1}"
 
-    def prepare_expression(self, expr, copy_select_refs=False):
+    def prepare_expression(self, expr):
         """
         Replaces identifiers (column names) in sql expressions by references to
         `_values` and put (quoted) strings back
@@ -159,9 +159,7 @@ class Processor:
 
         if isinstance(expr, int):
             # special case: expression is out col number (1-based)
-            if not copy_select_refs:  # reuses existing result
-                return [f"_res[{expr-1}]"]
-            expr = self.prs["select"][expr - 1]["expr"]
+            return [f"_res[{expr-1}]"]  # reuses existing result
 
         for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
@@ -179,9 +177,7 @@ class Processor:
             "order by",
         }
 
-    def compile_clause(
-        self, clause, clause_modifier=None, mode="eval", copy_select_refs=False
-    ):
+    def compile_clause(self, clause, clause_modifier=None, mode="eval"):
         """
         Compiles a clause of the query
         """
@@ -195,7 +191,7 @@ class Processor:
         single = self.is_clause_single(clause)
         clause_exprs = None
         if single:  # a clause with a single expression like WHERE
-            clause_exprs = self.prepare_expression(prs_clause, copy_select_refs)
+            clause_exprs = self.prepare_expression(prs_clause)
             if len(clause_exprs) > 1:
                 spyql.log.user_error(
                     f"could not compile {clause.upper()} clause",
@@ -206,9 +202,7 @@ class Processor:
                 )
             clause_exprs = clause_exprs[0]
         else:  # a clause with multiple expressions like SELECT
-            clause_exprs = [
-                self.prepare_expression(c["expr"], copy_select_refs) for c in prs_clause
-            ]
+            clause_exprs = [self.prepare_expression(c["expr"]) for c in prs_clause]
             clause_exprs = [
                 item for sublist in clause_exprs for item in sublist
             ]  # flatten (because of '*')
@@ -335,9 +329,7 @@ class Processor:
                 select_expr = self.compile_clause("select")
                 where_expr = self.compile_clause("where")
                 explode_expr = self.compile_clause("explode")
-                # in group by, refs to output columns are replaced by the select
-                # expressions. This is redundat but makes implmentation straightforward
-                groupby_expr = self.compile_clause("group by", copy_select_refs=True)
+                groupby_expr = self.compile_clause("group by")
                 orderby_expr = self.compile_clause("order by")
 
             if explode_expr:
@@ -364,7 +356,7 @@ class Processor:
                         # executation of the select clause: refs to ouput columns are
                         # replaced by the correspondent expression
                         _group_res = tuple(self.eval_clause("group by", groupby_expr))
-                        # we need to set the group key before running select because
+                        # we need to set the group key before running the select because
                         # aggregate functions need to know the group key beforehand
                         spyql.agg.start_new_agg_row(_group_res)
 

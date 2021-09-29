@@ -21,6 +21,35 @@ query_struct_keywords = [
 ]
 
 
+def get_agg_funcs():
+    import spyql.agg
+    import inspect
+
+    funcs = inspect.getmembers(spyql.agg, inspect.isfunction)
+    return {f[0] for f in funcs}
+
+
+agg_funcs = get_agg_funcs()
+
+
+def extract_funcs(expr):
+    return re.findall(r"(\w+)\s*\(", expr)
+
+
+def has_agg_func(expr):
+    return agg_funcs.intersection(extract_funcs(expr))
+
+
+def throw_error_if_has_agg_func(expr, clause_name):
+    a = has_agg_func(expr)
+    if has_agg_func(expr):
+        spyql.log.user_error(
+            f"aggregate functions are not allowed in {clause_name} clause",
+            SyntaxError("bad query"),
+            ",".join(a),
+        )
+
+
 def clean_query(q):
     """makes sure that queries start with a space (required for parse_structure)"""
     q = " " + q.strip()
@@ -186,15 +215,19 @@ def parse_orderby(clause, strings):
     return res
 
 
-def parse_groupby(clause, strings):
+def parse_groupby(clause, select, strings):
     """splits the GROUP BY clause"""
 
     res = []
     for expr in split_multi_expr_clause(clause):
         try:
             expr = int(expr)  # special case: expression is output column number
+            # in the case of group by, the expression is copied from select to avoid
+            # group by depending on select (see spyql.processor._go)
+            expr = select[expr - 1]["expr"]
         except ValueError:
             expr = make_expr_ready(expr, strings)
+        throw_error_if_has_agg_func(expr, "GROUP BY")
         res.append({"expr": expr})
 
     return res
@@ -226,11 +259,21 @@ def parse(query):
         "order by",
     }:
         if prs[clause]:
+            if clause in {"where", "from"}:
+                throw_error_if_has_agg_func(prs[clause], clause.upper())
             prs[clause] = make_expr_ready(prs[clause], strings)
 
     for clause in {"group by"}:
         if prs[clause]:
-            prs[clause] = parse_groupby(prs[clause], strings)
+            prs[clause] = parse_groupby(prs[clause], prs["select"], strings)
+        elif has_agg_func(query):
+            # creates a dummy group by with a constant if there are agg functions
+            # e.g. `select count_agg(*) from csv`
+            prs[clause] = [{"expr": "'_OVERALL_'"}]
+            if prs["order by"]:
+                spyql.log.user_warning(
+                    "ORDER BY is useless since output will have a single result"
+                )
 
     for clause in {"order by"}:
         if prs[clause]:
