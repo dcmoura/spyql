@@ -118,6 +118,12 @@ def pythonize(s):
     # (currently only needed for imports)
     s = re.compile(r"\s+AS\s+", re.IGNORECASE).sub(" as ", s)
 
+    # replace count_agg(*) and count_distinct_agg(*) by appropriate calls
+    s = re.compile(r"\bcount\_agg\s*\(\s*\*\s*\)").sub("count_agg(1)", s)
+    s = re.compile(r"\bcount\_distinct\_agg\s*\(\s*\*\s*\)").sub(
+        "count_distinct_agg(tuple(_values))", s
+    )
+
     # easy shortcut for navigating through dics (of dics)
     # e.g.   `json->hello->'planet hearth'` converts into
     #       `json['hello']['planet hearth']`
