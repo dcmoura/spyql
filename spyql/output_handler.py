@@ -11,14 +11,20 @@ class OutputHandler:
         Chooses the right handler depending on the kind of query
         and eventual optimisation opportunities
         """
-        if prs["group by"]:
+        if prs["group by"] and not prs["partials"]:
             return GroupByDelayedOutSortAtEnd(
                 prs["order by"], prs["limit"], prs["offset"]
             )
         if prs["order by"]:
             # TODO otimisation: use special handler that only keeps the top n elements
             #   in memory when LIMIT is defined
+            if prs["distinct"]:
+                return DistinctDelayedOutSortAtEnd(
+                    prs["order by"], prs["limit"], prs["offset"]
+                )
             return DelayedOutSortAtEnd(prs["order by"], prs["limit"], prs["offset"])
+        if prs["distinct"]:
+            return LineInDistinctLineOut(prs["limit"], prs["offset"])
         return LineInLineOut(prs["limit"], prs["offset"])
 
     def __init__(self, limit, offset):
@@ -31,11 +37,13 @@ class OutputHandler:
 
     def handle_result(self, result, group_key, sort_keys):
         """
-        To be implemented by child classes to handle a new output row (aka result)
+        To be implemented by child classes to handle a new output row (aka result).
+        All inputs should be tuples.
         """
         return self.is_done()
 
     def is_done(self):
+        # premature ending
         return self.limit is not None and self.rows_written >= self.limit
 
     def write(self, row):
@@ -53,6 +61,27 @@ class LineInLineOut(OutputHandler):
     """Simple handler that immediatly writes every processed row"""
 
     def handle_result(self, result, *_):
+        self.write(result)
+        return self.is_done()
+
+    def finish(self):
+        super().finish()
+
+
+class LineInDistinctLineOut(OutputHandler):
+    """In-memory distinct handler that immediatly writes every non-duplicated row"""
+
+    def __init__(self, limit, offset):
+        super().__init__(limit, offset)
+        self.output_rows = set()
+        spyql.log.user_info("Current implementation of DISTINCT is in-memory")
+
+    def handle_result(self, result, *_):
+        # uses a dict to store distinct results instead of storing all rows
+        if result in self.output_rows:
+            return False  # duplicate
+
+        self.output_rows.add(result)
         self.write(result)
         return self.is_done()
 
@@ -110,8 +139,8 @@ class DelayedOutSortAtEnd(OutputHandler):
 
 class GroupByDelayedOutSortAtEnd(DelayedOutSortAtEnd):
     """
-    Alters `DelayedOutSortAtEnd` to only store intermediate group by results instead of
-    keeping all rows in mmemory
+    Extends `DelayedOutSortAtEnd` to only store intermediate group by results instead of
+    keeping all rows in memory
     """
 
     def __init__(self, orderby, limit, offset):
@@ -125,6 +154,31 @@ class GroupByDelayedOutSortAtEnd(DelayedOutSortAtEnd):
         return False  # no premature endings here
 
     def finish(self):
-        # converts output_rows dict to list so that it can be sorted and written
+        #  converts output_rows dict to list so that it can be sorted and written
         self.output_rows = list(self.output_rows.values())
+        super().finish()
+
+
+class DistinctDelayedOutSortAtEnd(DelayedOutSortAtEnd):
+    """
+    Alters `DelayedOutSortAtEnd` to only store distinct results instead of
+    keeping all rows in memory
+    """
+
+    def __init__(self, orderby, limit, offset):
+        super().__init__(orderby, limit, offset)
+        self.output_rows = dict()
+        spyql.log.user_info("Current implementation of DISTINCT is in-memory")
+
+    def handle_result(self, result, sort_keys, *_):
+        # uses a dict to store distinct results instead of storing all rows
+        if result not in self.output_rows:
+            self.output_rows[result] = sort_keys
+        return False  # no premature endings here
+
+    def finish(self):
+        # converts output_rows dict to list so that it can be sorted and written
+        self.output_rows = [
+            {"data": k, "sort_keys": v} for k, v in self.output_rows.items()
+        ]
         super().finish()

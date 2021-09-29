@@ -46,7 +46,7 @@ def list_of_struct2py(vals):
     if not vals:
         return []
     header = [str(list(vals[0].keys()))]
-    rows = [str(list(val.values())) for val in vals]
+    rows = [str(tuple(val.values())) for val in vals]
     return header + rows
 
 

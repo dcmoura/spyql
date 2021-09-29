@@ -165,6 +165,11 @@ def split_multi_expr_clause(s):
 def parse_select(sel, strings):
     """splits the SELECT clause into columns and find their names"""
     # TODO support column alias without AS
+    modif_pattern = r"^\s*(?:(DISTINCT)\s+)?(?:(PARTIALS)\s+)?"
+    modifs = re.search(modif_pattern, sel.upper())
+    has_distinct = "DISTINCT" in modifs.groups()
+    has_partials = "PARTIALS" in modifs.groups()
+    sel = sel[modifs.span()[1] :]  # remove modifiers from expression
 
     res = []
     as_pattern = re.compile(r"\s+AS\s+", re.IGNORECASE)
@@ -190,7 +195,7 @@ def parse_select(sel, strings):
 
         res.append({"name": name, "expr": expr})
 
-    return res
+    return res, has_distinct, has_partials
 
 
 def parse_orderby(clause, strings):
@@ -241,7 +246,7 @@ def parse(query):
     """parses the spyql query"""
     strings = QuotesHandler()
     query = strings.extract_strings(query)
-
+    query_has_agg_funcs = has_agg_func(query)
     prs = parse_structure(query)
 
     if not prs["select"]:
@@ -249,7 +254,9 @@ def parse(query):
             "could not parse query", SyntaxError("SELECT keyword is missing")
         )
 
-    prs["select"] = parse_select(prs["select"], strings)
+    prs["select"], prs["distinct"], prs["partials"] = parse_select(
+        prs["select"], strings
+    )
 
     for clause in set(query_struct_keywords) - {
         "select",
@@ -266,7 +273,7 @@ def parse(query):
     for clause in {"group by"}:
         if prs[clause]:
             prs[clause] = parse_groupby(prs[clause], prs["select"], strings)
-        elif has_agg_func(query):
+        elif query_has_agg_funcs:
             # creates a dummy group by with a constant if there are agg functions
             # e.g. `select count_agg(*) from csv`
             prs[clause] = [{"expr": "'_OVERALL_'"}]
@@ -274,6 +281,12 @@ def parse(query):
                 spyql.log.user_warning(
                     "ORDER BY is useless since output will have a single result"
                 )
+        if prs[clause] and prs["distinct"]:
+            # This is feasible to implement but currently not supported
+            spyql.log.user_error(
+                "DISTINCT cannot be used in aggregation queries",
+                SyntaxError("bad query"),
+            )
 
     for clause in {"order by"}:
         if prs[clause]:
@@ -369,10 +382,11 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
 
     \b
     [ IMPORT python_module [ AS identifier ] [, ...] ]
-    SELECT
+    SELECT [ DISTINCT | PARTIALS ]
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
         [ WHERE python_expression ]
+        [ GROUP BY output_column_number | python_expression  [, ...] ]
         [ ORDER BY output_column_number | python_expression
             [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
         [ LIMIT row_count ]

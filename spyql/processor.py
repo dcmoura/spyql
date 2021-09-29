@@ -206,7 +206,7 @@ class Processor:
             clause_exprs = [
                 item for sublist in clause_exprs for item in sublist
             ]  # flatten (because of '*')
-            clause_exprs = "[" + ",".join(clause_exprs) + "]"
+            clause_exprs = ",".join(clause_exprs) + ","  # tuple constructor
 
         try:
             return compile(clause_exprs, f"<{clause}>", mode)
@@ -288,9 +288,9 @@ class Processor:
         groupby_expr = None
         orderby_expr = None
         _values = []
-        _res = []
-        _group_res = []
-        _sort_res = []
+        _res = tuple()
+        _group_res = tuple()
+        _sort_res = tuple()
         row_number = 0
         input_row_number = 0
 
@@ -355,7 +355,7 @@ class Processor:
                         # group by can ref output columns, but does not depend on the
                         # executation of the select clause: refs to ouput columns are
                         # replaced by the correspondent expression
-                        _group_res = tuple(self.eval_clause("group by", groupby_expr))
+                        _group_res = self.eval_clause("group by", groupby_expr)
                         # we need to set the group key before running the select because
                         # aggregate functions need to know the group key beforehand
                         spyql.agg.start_new_agg_row(_group_res)

@@ -251,6 +251,14 @@ class NullSafeDict(dict):
         spyql.log.user_warning4func("key not found", KeyError(key), key)
         return NULL
 
+    def __hash__(self):
+        # TODO make dict immutable
+        import json
+
+        # TODO check if this is sufficienly efficient...
+        # This only needs to guarantee that two equivalent dicts have the same hash
+        return hash(json.dumps(self, default=lambda x: str(x), sort_keys=True))
+
 
 # returns default if val is NULL otherwise returns val
 def coalesce(val, default):
