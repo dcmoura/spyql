@@ -186,9 +186,9 @@ def parse_select(sel, strings):
             name = expr[(sas.span()[1]) :].strip()
             expr = expr[: (sas.span()[0])]
         else:
-            # automatic output column name from expresopm
+            # automatic output column name from expression
             # removes json 'variable' reference (visual garbage)
-            name = re.compile(r"(\s|^)json(->|\[)").sub(r"\1", expr)
+            name = re.compile(r"(\b)json(->|\[)").sub(r"\1", expr)
             # makes the string a valid python variable name
             name = spyql.utils.make_str_valid_varname(strings.put_strings_back(name))
 
