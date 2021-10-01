@@ -239,10 +239,17 @@ NULL_SAFE_FUNCS = {
 class NullSafeDict(dict):
     __slots__ = ()  # no __dict__
 
+    @staticmethod
+    def none2null(adic):
+        def none2null_el(el):
+            return [NULL if x is None else x for x in el] if type(el) is list else el
+
+        return {k: NULL if v is None else none2null_el(v) for k, v in adic.items()}
+
     def __init__(self, adic, **kwargs):
         super().__init__(
             # converts None -> NULL
-            {k: NULL if v is None else v for k, v in adic.items()},
+            NullSafeDict.none2null(adic),
             **kwargs
         )
 
