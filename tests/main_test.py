@@ -9,6 +9,7 @@ import json
 import csv
 import io
 import sqlite3
+import math
 
 
 # --------  AUX FUNCTIONS  --------
@@ -169,6 +170,25 @@ def test_basic():
     # negative limit
     eq_test_nrows("SELECT * FROM [1,2,3] LIMIT -10", [])
 
+    # complex expressions with commas and different types of brackets
+    eq_test_1row(
+        "SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc,"
+        " 2 AS two FROM [1]",
+        {"calc": 30, "two": 2},
+    )
+
+    # import
+    eq_test_1row(
+        "IMPORT sys SELECT sys.version_info.major AS major_ver", {"major_ver": 3}
+    )
+
+    eq_test_1row(
+        "IMPORT numpy AS np, sys SELECT (np.array([1,2,3])+1).tolist() AS a",
+        {"a": [2, 3, 4]},
+    )
+
+
+def test_orderby():
     # order by (1 col)
     eq_test_nrows(
         "SELECT * FROM [1,-2,3] ORDER BY 1", [{"col1": -2}, {"col1": 1}, {"col1": 3}]
@@ -307,22 +327,89 @@ def test_basic():
         [],
     )
 
-    # complex expressions with commas and different types of brackets
-    eq_test_1row(
-        "SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc,"
-        " 2 AS two FROM [1]",
-        {"calc": 30, "two": 2},
+
+def test_agg():
+    # aggregate functions (overall)
+    funcs = (
+        # sql func, python func, remove nulls on python func?
+        ("sum_agg(col1)", lambda x: sum(x) if x else NULL, True),
+        ("prod_agg(col1)", lambda x: math.prod(x) if x else NULL, True),
+        ("count_agg(col1)", len, True),
+        ("count_agg(*)", len, False),
+        ("avg_agg(col1)", lambda x: sum(x) / len(x) if x else NULL, True),
+        ("min_agg(col1)", lambda x: min(x) if x else NULL, True),
+        ("max_agg(col1)", lambda x: max(x) if x else NULL, True),
+        ("array_agg(col1)", lambda x: list(x), False),
+        ("array_agg(col1, False)", lambda x: list(x), True),
+        ('string_agg(col1,",")', lambda x: ",".join(map(str, x)), True),
+        ('string_agg(col1,",",True)', lambda x: ",".join(map(str, x)), False),
+        (
+            "sorted(list(set_agg(col1)), key=lambda x: (x is NULL, x))",
+            lambda y: sorted(list(set(y)), key=lambda x: (x is NULL, x)),
+            False,
+        ),
+        ("sorted(list(set_agg(col1, False)))", lambda y: sorted(list(set(y))), True),
+        ("first_agg(col1)", lambda x: x[0] if x else NULL, False),
+        ("first_agg(col1, False)", lambda x: x[0] if x else NULL, True),
+        ("last_agg(col1)", lambda x: x[-1] if x else NULL, False),
+        ("last_agg(col1, False)", lambda x: x[-1] if x else NULL, True),
+        ("count_distinct_agg(col1)", lambda x: len(set(x)), True),
+        ("count_distinct_agg(*)", lambda x: len(set(x)), False),
+        (
+            "any_agg(col1 == 1)",
+            lambda x: any(map(lambda y: y == 1, x)) if x else NULL,
+            True,
+        ),
+        (
+            "every_agg(col1 > 0)",
+            lambda x: all(map(lambda y: y > 0, x)) if x else NULL,
+            True,
+        ),
     )
 
-    # import
-    eq_test_1row(
-        "IMPORT sys SELECT sys.version_info.major AS major_ver", {"major_ver": 3}
-    )
+    tst_lists = [
+        [NULL],
+        [NULL, NULL, NULL, NULL],
+        [NULL, 11, NULL],
+        [NULL, 11, 5, 10, NULL, 3, 3, 10, 4],
+        [12],
+        range(1, 21),
+        range(-10, 6),
+        [int(math.cos(x) * 100) / 100.0 for x in range(100)],
+    ]
+    for tst_list in tst_lists:
+        tst_list_clean = list(filter(lambda x: x is not NULL, tst_list))
+        for sql_func, tst_func, ignore_nulls in funcs:
+            col_name = sql_func[:5]
+            l = tst_list_clean if ignore_nulls else tst_list
+            eq_test_1row(
+                f"SELECT {sql_func} as {col_name} FROM {tst_list}",
+                {col_name: tst_func(l)},
+            )
+            eq_test_1row(
+                f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
+                {"a": tst_func(l), "b": tst_func(l) * 2},
+            )
 
-    eq_test_1row(
-        "IMPORT numpy AS np, sys SELECT (np.array([1,2,3])+1).tolist() AS a",
-        {"a": [2, 3, 4]},
-    )
+    # this would return a row with 0 in standard SQL, but in SpyQL returns no rows
+    eq_test_nrows("SELECT count(*) FROM []", [])
+
+    # partials
+    for tst_list in tst_lists:
+        eq_test_nrows(
+            "SELECT PARTIALS array_agg(col1) as a, count_agg(col1) as c1, count_agg(*)"
+            f" as c2, first_agg(col1) as f, last_agg(col1) as l FROM {tst_list}",
+            [
+                {
+                    "a": list(tst_list[:n]),
+                    "c1": len(list(filter(lambda el: el is not NULL, tst_list[:n]))),
+                    "c2": n,
+                    "f": tst_list[0],
+                    "l": tst_list[n - 1],
+                }
+                for n in range(1, len(tst_list) + 1)
+            ],
+        )
 
 
 def test_null():
