@@ -1,9 +1,18 @@
 import operator
 from spyql.nulltype import Null
 
-_agg_idx = 0  # pointer to the current aggregate tracker, to reset every new row
-_agg_key = ()  # aggregation key of the current row
-_aggs = dict()  # cumulatives of all aggregations
+
+def init_aggs():
+    global _agg_idx
+    global _agg_key
+    global _aggs
+
+    _agg_idx = 0  # pointer to the current aggregate tracker, to reset every new row
+    _agg_key = ()  # aggregation key of the current row
+    _aggs = dict()  # cumulatives of all aggregations
+
+
+init_aggs()
 
 
 def start_new_agg_row(key):
@@ -64,28 +73,35 @@ def max_agg(val):
     return _agg_op(max, val)
 
 
-def array_agg(val):
-    return sum_agg(Null if val is Null else [val])
+def array_agg(val, respect_nulls=True):
+    vals = sum_agg([val] if respect_nulls or val is not Null else Null)
+    return [] if vals is Null else vals  # guarantees that result is always an array
 
 
-def string_agg(val, sep):
-    return str(sep).join(array_agg(str(val)))
+def string_agg(val, sep, respect_nulls=False):
+    return str(sep).join(
+        sum_agg([str(val)] if respect_nulls or val is not Null else Null)
+    )
 
 
-def set_agg(val):
-    return _agg_op(operator.or_, Null if val is Null else {val})
+def set_agg(val, respect_nulls=True):
+    return _agg_op(operator.or_, {val} if respect_nulls or val is not Null else Null)
 
 
-def first_agg(val):
-    return _agg_op(lambda prev, _: prev, val)
+def first_agg(val, respect_nulls=True):
+    return _agg_op(
+        lambda prev, _: prev, [val] if respect_nulls or val is not Null else Null
+    )[0]
 
 
-def last_agg(val):
-    return _agg_op(lambda _, cur: cur, val)
+def last_agg(val, respect_nulls=True):
+    return _agg_op(
+        lambda _, cur: cur, [val] if respect_nulls or val is not Null else Null
+    )[0]
 
 
 def count_distinct_agg(val):
-    return len(set_agg(val))
+    return len(_agg_op(operator.or_, Null if val is Null else {val}))
 
 
 def any_agg(val):
