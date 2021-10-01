@@ -412,6 +412,31 @@ def test_agg():
         )
 
 
+def test_distinct():
+    eq_test_1row("SELECT DISTINCT 1 as a FROM range(1)", {"a": 1})
+    eq_test_1row("SELECT DISTINCT 1 as a FROM range(10)", {"a": 1})
+    eq_test_1row("SELECT DISTINCT 1 as a, 2 as b FROM range(100)", {"a": 1, "b": 2})
+    eq_test_nrows(
+        "SELECT DISTINCT col1 % 2 as a, 2 as b FROM range(100)",
+        [{"a": 0, "b": 2}, {"a": 1, "b": 2}],
+    )
+    eq_test_nrows(
+        "SELECT DISTINCT col1 % 3 as a, 2 as b FROM range(100) ORDER BY 1 DESC",
+        [{"a": 2, "b": 2}, {"a": 1, "b": 2}, {"a": 0, "b": 2}],
+    )
+    eq_test_nrows(
+        "SELECT DISTINCT -(col1%3) as a, -(col1%2) as b FROM range(90) ORDER BY 1,2",
+        [
+            {"a": -2, "b": -1},
+            {"a": -2, "b": 0},
+            {"a": -1, "b": -1},
+            {"a": -1, "b": 0},
+            {"a": 0, "b": -1},
+            {"a": 0, "b": 0},
+        ],
+    )
+
+
 def test_null():
     eq_test_1row("SELECT NULL", {"NULL": NULL})
     eq_test_1row("SELECT NULL+1", {"NULL_1": NULL})
