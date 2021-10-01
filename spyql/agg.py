@@ -12,9 +12,6 @@ def init_aggs():
     _aggs = dict()  # cumulatives of all aggregations
 
 
-init_aggs()
-
-
 def start_new_agg_row(key):
     global _agg_idx
     global _agg_key

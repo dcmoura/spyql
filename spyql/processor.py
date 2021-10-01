@@ -5,7 +5,6 @@ import sys
 import io
 import re
 import os
-from collections.abc import Iterable
 from itertools import islice, chain
 from io import StringIO
 
@@ -13,7 +12,7 @@ from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
 import spyql.nulltype
 import spyql.log
-from spyql.utils import make_str_valid_varname
+from spyql.utils import make_str_valid_varname, isiterable
 import spyql.agg
 
 
@@ -242,7 +241,7 @@ class Processor:
             return
         cmd = eval if mode == "eval" else exec
         try:
-            return cmd(clause_exprs, {}, self.vars)
+            return cmd(clause_exprs, self.vars, self.vars)
         except Exception as main_exception:
             prs_clause = self.prs[clause]
             if not self.is_clause_single(clause):
@@ -254,7 +253,7 @@ class Processor:
                         expr = prs_clause[c]["expr"]
                         translation = self.prepare_expression(expr)
                         for trans in translation:
-                            cmd(trans, {}, self.vars)
+                            cmd(trans, self.vars, self.vars)
                     except Exception as expr_exception:
                         spyql.log.user_error(
                             f"could not evaluate {clause.upper()} expression #{c+1}",
@@ -295,6 +294,7 @@ class Processor:
         input_row_number = 0
 
         self.vars = init_vars()
+        spyql.agg.init_aggs()
 
         # import user modules
         self.eval_clause(
@@ -387,9 +387,9 @@ class PythonExprProcessor(Processor):
     def get_input_iterator(self):
         e = self.eval_clause("from", self.compile_clause("from"))
         if e:
-            if not isinstance(e, Iterable):
+            if not isiterable(e):
                 e = [e]
-            if not isinstance(e[0], Iterable):
+            if not isiterable(e[0]):
                 e = [[el] for el in e]
         return e
 
