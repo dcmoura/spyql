@@ -412,6 +412,46 @@ def test_agg():
         )
 
 
+def test_groupby():
+    eq_test_1row("SELECT 1 as a FROM range(1) GROUP BY col1", {"a": 1})
+    eq_test_1row(
+        "SELECT 1 as a, count_agg(*) as c FROM range(1) GROUP BY 1", {"a": 1, "c": 1}
+    )
+    eq_test_1row(
+        "SELECT 1 as a, count_agg(*) as c FROM range(10) GROUP BY 1", {"a": 1, "c": 10}
+    )
+    eq_test_1row(
+        "SELECT 1 as a, 2 as b, count_agg(*) as c FROM range(100) GROUP BY 1, 2",
+        {"a": 1, "b": 2, "c": 100},
+    )
+    eq_test_nrows(
+        "SELECT col1 % 2 as a, 2 as b, count_agg(*) as c, min_agg(col1) as mn,"
+        " max_agg(col1) as mx FROM range(101) GROUP BY 1, 1+1",
+        [
+            {"a": 0, "b": 2, "c": 51, "mn": 0, "mx": 100},
+            {"a": 1, "b": 2, "c": 50, "mn": 1, "mx": 99},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 % 3 as a, 2 as b, max_agg(col1) as mx FROM range(100) GROUP BY 1,"
+        " 2 ORDER BY 1 DESC",
+        [
+            {"a": 2, "b": 2, "mx": 98},
+            {"a": 1, "b": 2, "mx": 97},
+            {"a": 0, "b": 2, "mx": 99},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 % 3 as a, 2 as b, max_agg(col1) as mx FROM range(100) GROUP BY 1,"
+        " 2 ORDER BY max_agg(col1)",
+        [
+            {"a": 1, "b": 2, "mx": 97},
+            {"a": 2, "b": 2, "mx": 98},
+            {"a": 0, "b": 2, "mx": 99},
+        ],
+    )
+
+
 def test_distinct():
     eq_test_1row("SELECT DISTINCT 1 as a FROM range(1)", {"a": 1})
     eq_test_1row("SELECT DISTINCT 1 as a FROM range(10)", {"a": 1})
@@ -435,6 +475,21 @@ def test_distinct():
             {"a": 0, "b": 0},
         ],
     )
+
+    # Distinct jsons
+    res = run_spyql(
+        "SELECT DISTINCT json FROM json EXPLODE json->a TO json",
+        data=(
+            '{"a": [1, 2, 2], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
+            ' "four"}\n'
+        ),
+    )
+    assert json_output(res.output) == [
+        {"a": 1, "b": "three"},
+        {"a": 2, "b": "three"},
+        {"a": 4, "b": "four"},
+    ]
+    assert res.exit_code == 0
 
 
 def test_null():
@@ -577,6 +632,9 @@ def test_errors():
     exception_test("SELECT int('abcde')", ValueError, options=["-Werror"])
     exception_test("SELECT float('')", ValueError, options=["-Werror"])
     exception_test("SELECT float('')", ValueError, options=["-Werror"])
+    exception_test("SELECT DISTINCT count_agg(1)", SyntaxError)
+    exception_test("SELECT count_agg(1) GROUP BY 1", SyntaxError)
+    exception_test("SELECT 1 FROM range(3) WHERE max_agg(col1) > 0", SyntaxError)
 
 
 def test_sql_output():

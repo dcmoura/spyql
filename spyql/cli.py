@@ -25,6 +25,7 @@ def get_agg_funcs():
     import spyql.agg
     import inspect
 
+    # TODO replace this by register mechanism to allow for user-defined aggregation
     funcs = inspect.getmembers(spyql.agg, inspect.isfunction)
     return {f[0] for f in funcs}
 

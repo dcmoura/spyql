@@ -29,7 +29,13 @@ def _agg_op(op, val):
     Generic aggregation function.
     `val` is the value for the current aggregation of the current row (ignores NULLs).
     `op` should be function(cumulative_from_prev_rows, value_for_cur_row).
+    Current mechanism is based on the order of aggregate functions in the query. This
+    might fail if there are flow control statements, which is not checked by the parser!
+    (e.g. `SELECT max_agg(x) if x>0 else 0, count_agg(*)` produces unpredictable results
+    because in some rows the max function is executed and in others is not. Therefore,
+    in some rows the count_agg will have agg_idx 1 and on others agg_idx 0)
     """
+    # TODO prevent/detect erroneous aggregation behaviour due to flow control statments
     global _agg_idx
     global _agg_key
     global _aggs
