@@ -10,6 +10,7 @@ import csv
 import io
 import sqlite3
 import math
+from functools import reduce
 
 
 # --------  AUX FUNCTIONS  --------
@@ -333,7 +334,11 @@ def test_agg():
     funcs = (
         # sql func, python func, remove nulls on python func?
         ("sum_agg(col1)", lambda x: sum(x) if x else NULL, True),
-        ("prod_agg(col1)", lambda x: math.prod(x) if x else NULL, True),
+        (
+            "prod_agg(col1)",
+            lambda x: reduce(lambda a, b: a * b, x) if x else NULL,
+            True,
+        ),
         ("count_agg(col1)", len, True),
         ("count_agg(*)", len, False),
         ("avg_agg(col1)", lambda x: sum(x) / len(x) if x else NULL, True),
