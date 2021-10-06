@@ -7,9 +7,9 @@ def init_aggs():
     global _agg_key
     global _aggs
 
-    _agg_idx = 0  # pointer to the current aggregate tracker, to reset every new row
+    _agg_idx = 0  # pointer to the current aggregate tracker, reset every new row
     _agg_key = ()  # aggregation key of the current row
-    _aggs = dict()  # cumulatives of all aggregations
+    _aggs = dict()  # cumulative of each aggregation
 
 
 def start_new_agg_row(key):
@@ -24,7 +24,7 @@ def get_aggs():
     return _aggs
 
 
-def _agg_op(op, val):
+def _agg_op(op, val, default=Null):
     """
     Generic aggregation function.
     `val` is the value for the current aggregation of the current row (ignores NULLs).
@@ -35,13 +35,13 @@ def _agg_op(op, val):
     because in some rows the max function is executed and in others is not. Therefore,
     in some rows the count_agg will have agg_idx 1 and on others agg_idx 0)
     """
-    # TODO prevent/detect erroneous aggregation behaviour due to flow control statments
+    # TODO prevent/detect erroneous aggregation behavior due to flow control statements
     global _agg_idx
     global _agg_key
     global _aggs
     key = (_agg_key, _agg_idx)
     _agg_idx += 1  # moves to the next aggregation (before any return)
-    prev_val = _aggs.get(key, Null)
+    prev_val = _aggs.get(key, default)
     if val is Null:
         return prev_val
     new_val = val if prev_val is Null else op(prev_val, val)
@@ -49,7 +49,7 @@ def _agg_op(op, val):
     return new_val
 
 
-# Aggreation functions
+# Aggregation functions
 
 
 def sum_agg(val):
@@ -101,6 +101,11 @@ def last_agg(val, respect_nulls=True):
     return _agg_op(
         lambda _, cur: cur, [val] if respect_nulls or val is not Null else Null
     )[0]
+
+
+def lag_agg(val, offset=1, default=Null):
+    res = _agg_op(lambda prev, cur: (cur + prev)[: offset + 1], [val], default)
+    return res[-1] if len(res) > offset else Null
 
 
 def count_distinct_agg(val):

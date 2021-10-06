@@ -358,6 +358,8 @@ def test_agg():
         ("first_agg(col1, False)", lambda x: x[0] if x else NULL, True),
         ("last_agg(col1)", lambda x: x[-1] if x else NULL, False),
         ("last_agg(col1, False)", lambda x: x[-1] if x else NULL, True),
+        ("lag_agg(col1)", lambda x: x[-2] if len(x) > 1 else NULL, False),
+        ("lag_agg(col1,2)", lambda x: x[-3] if len(x) > 2 else NULL, False),
         ("count_distinct_agg(col1)", lambda x: len(set(x)), True),
         ("count_distinct_agg(*)", lambda x: len(set(x)), False),
         (
@@ -403,14 +405,14 @@ def test_agg():
     for tst_list in tst_lists:
         eq_test_nrows(
             "SELECT PARTIALS array_agg(col1) as a, count_agg(col1) as c1, count_agg(*)"
-            f" as c2, first_agg(col1) as f, last_agg(col1) as l FROM {tst_list}",
+            f" as c2, first_agg(col1) as f, lag_agg(col1) as l FROM {tst_list}",
             [
                 {
                     "a": list(tst_list[:n]),
                     "c1": len(list(filter(lambda el: el is not NULL, tst_list[:n]))),
                     "c2": n,
                     "f": tst_list[0],
-                    "l": tst_list[n - 1],
+                    "l": NULL if n < 2 else tst_list[n - 2],
                 }
                 for n in range(1, len(tst_list) + 1)
             ],

@@ -287,10 +287,13 @@ ORDER BY 1
 
 ### Partial aggregations
 
-Calculating the cumulative sum of a variable using the `PARTIALS` modifier.
+Calculating the cumulative sum of a variable using the `PARTIALS` modifier. Also demoing the lag aggregator. 
 
 ```sql
-SELECT PARTIALS json->new_entries, sum_agg(json->new_entries) AS cum_new_entries
+SELECT PARTIALS 
+    json->new_entries, 
+    sum_agg(json->new_entries) AS cum_new_entries,
+    lag(json->new_entries) AS prev_entries
 FROM json
 TO json
 ```
@@ -308,12 +311,12 @@ Sample input:
 Output:
 
 ```json
-{"new_entries" : 10,   "cum_new_entries" : 10}
-{"new_entries" : 5,    "cum_new_entries" : 15}
-{"new_entries" : 25,   "cum_new_entries" : 40}
-{"new_entries" : null, "cum_new_entries" : 40}
-{"new_entries" : null, "cum_new_entries" : 40}
-{"new_entries" : 100,  "cum_new_entries" : 140}
+{"new_entries" : 10,   "cum_new_entries" : 10,  "prev_entries": null}
+{"new_entries" : 5,    "cum_new_entries" : 15,  "prev_entries": 10}
+{"new_entries" : 25,   "cum_new_entries" : 40,  "prev_entries": 5}
+{"new_entries" : null, "cum_new_entries" : 40,  "prev_entries": 25}
+{"new_entries" : null, "cum_new_entries" : 40,  "prev_entries": null}
+{"new_entries" : 100,  "cum_new_entries" : 140, "prev_entries": null}
 ```
 
 If `PARTIALS`was omitted the result would be equivalent to the last output row. 
