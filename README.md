@@ -37,13 +37,13 @@ SpyQL also allows you to easily convert between text data formats:
 
 * `FROM`: CSV, JSON, TEXT and Python iterators (YES, you can use a list comprehension as the data source)
 
-* `TO`: CSV, JSON, SQL (INSERT statments), pretty terminal printing, and terminal plotting.
+* `TO`: CSV, JSON, SQL (INSERT statements), pretty terminal printing, and terminal plotting.
 
 The JSON format is [JSON lines](https://jsonlines.org), where each line has a valid JSON object or array. Piping with [jq](https://stedolan.github.io/jq/) allows SpyQL to handle any JSON input (more on the examples section).
 
 You can leverage command line tools to process other file types like Parquet and XML  (more on the examples section).
 
-### Instalation
+### Installation
 
 To install SpyQL, run this command in your terminal:
 
@@ -64,7 +64,7 @@ Message
 Hello world
 ```
 
-Try replacing the output format to json and csv, and try adding more columns. e.g. run in the terminal:
+Try replacing the output format by json and csv, and try adding more columns. e.g. run in the terminal:
 
 ```sh
 spyql "SELECT 'Hello world' as message, 1+2 as three TO json"
@@ -78,7 +78,7 @@ Output:
 
 Right now, the focus is on building a command-line tool that follows these core principles:
 
-* **Simple**: simple to use with a straifghtforward implementation
+* **Simple**: simple to use with a straightforward implementation
 * **Familiar**: you should feel at home if you are acquainted with SQL and Python
 * **Light**: small memory footprint that allows you to process large data that fit into your machine
 * **Useful**: it should make your life easier, filling a gap in the eco-system
@@ -88,10 +88,11 @@ Right now, the focus is on building a command-line tool that follows these core 
 
 ```sql
 [ IMPORT python_module [ AS identifier ] [, ...] ]
-SELECT
+SELECT [ DISTINCT | PARTIALS ] 
     [ * | python_expression [ AS output_column_name ] [, ...] ]
     [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
     [ WHERE python_expression ]
+    [ GROUP BY output_column_number | python_expression  [, ...] ]
     [ ORDER BY output_column_number | python_expression
         [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
     [ LIMIT row_count ]
@@ -99,19 +100,25 @@ SELECT
     [ TO csv | json | spy | sql | pretty | plot ]
 ```
 
-Comming next: `ORDER BY`, `GROUP BY`, `EXECUTE`
-
 
 ## Notable differences to SQL
 
 In SpyQL:
 
-* there is guarantee that the order of the output rows is the same as in the input
+* there is guarantee that the order of the output rows is the same as in the input (if no reordering is done)
 * the `AS` keyword must precede a column alias definition (it is not optional as in SQL)
-* you can always access the nth column by using the default column names `colN` (e.g. `col1` for the first column)
+* you can always access the nth input column by using the default column names `colN` (e.g. `col1` for the first column)
 * currently only a small subset of SQL is supported, namely `SELECT` statements without: sub-queries, joins, set operations, etc (check the [Syntax](#syntax) section)
 * sub-queries are achieved by piping (see the [Command line examples](#command line examples)
  section)
+* aggregation functions have the suffix `_agg` to avoid conflicts with python's built-in functions:
+
+| Operation | PostgreSQL | SpyQL |
+| --------- | ---------- | ----- |
+| Sum all values of a column | `SELECT sum(col_name)` | `SELECT sum_agg(col_name)` | 
+| Sum an array | `SELECT sum(a) FROM (SELECT unnest(array[1,2,3]) AS a) AS t` | `SELECT sum([1,2,3])` |
+
+
 * expressions are pure Python:
 
 | SQL | SpySQL |
@@ -141,7 +148,7 @@ Python's `None` generates exceptions when making operations on missing data, bre
 |Operation | Native Python throws | SpySQL returns | SpySQL warning |
 | ------------- | ------------- | ------------- | ------------- |
 | `NULL + 1` | `NameError` | `NULL` | |
-| `adict['inexisting_key']` | `KeyError` | `NULL` | yes |
+| `a_dict['inexistent_key']` | `KeyError` | `NULL` | yes |
 | `int('')`   |  `ValueError` | `NULL` | yes |
 | `int('abc')` | `ValueError` | `NULL` | yes |
 
@@ -149,14 +156,14 @@ The above dictionary key access only returns `NULL` if the dict is an instance o
 
 ## Importing python modules and user-defined functions
 
-By default, spyql always imports some commonly used stuff:
+By default, spyql do some commonly used imports:
 - everything from the `math` module
 - `datetime`, `date` and `timezone` from the `datetime` module
 - the `re` module
 
-SpyQL queries support a single import statment at the beginning of the query where several modules can be imported (e.g. `IMPORT numpy AS np, sys SELECT ...`). Note that the python syntax `from module import identifier` is not supported in queries.
+SpyQL queries support a single import statement at the beginning of the query where several modules can be imported (e.g. `IMPORT numpy AS np, sys SELECT ...`). Note that the python syntax `from module import identifier` is not supported in queries.
 
-In addition, you can create a python file that is loaded before executing queries. Here you can define imports, functions, variables, etc using regular python code. Everything defined in this file is available to all your spyql queries. The file should be located at `XDG_CONFIG_HOME/sqyql/init.py`. If the environment variable `XDG_CONFIG_HOME` is not defined, it defaults to `HOME/.config` (e.g. `/Users/janedoe/.config/spyql/init.py`).
+In addition, you can create a python file that is loaded before executing queries. Here you can define imports, functions, variables, etc using regular python code. Everything defined in this file is available to all your spyql queries. The file should be located at `XDG_CONFIG_HOME/spyql/init.py`. If the environment variable `XDG_CONFIG_HOME` is not defined, it defaults to `HOME/.config` (e.g. `/Users/janedoe/.config/spyql/init.py`).
 
 
 
@@ -182,7 +189,7 @@ TO pretty
 SELECT * FROM csv TO json
 ```
 
-### Convert from CSV to a hierachical JSON
+### Convert from CSV to a hierarchical JSON
 
 ```sql
 SELECT {'client': {'id': col1, 'name': col2}, 'price': 120.40}
@@ -250,7 +257,7 @@ TO json
 ### Importing python modules
 
 Here we import `hashlib` to calculate a md5 hash for each input line.
-Before running this example you need to install the hashlib package (`pip install hashlib`).
+Before running this example you need to install the `hashlib` package (`pip install hashlib`).
 
 ```sql
 IMPORT hashlib as hl
@@ -261,11 +268,63 @@ FROM text
 ### Getting the top 5 records
 
 ```sql
-SELECT int(score), player_name
+SELECT int(score) AS score, player_name
 FROM csv
 ORDER BY 1 DESC NULLS LAST, score_date
 LIMIT 5
 ```
+
+### Aggregations
+
+Totals by player, alphabetically ordered.
+
+```sql
+SELECT json->player_name, sum_agg(json->score) AS total_score
+FROM json
+GROUP BY 1
+ORDER BY 1
+```
+
+### Partial aggregations
+
+Calculating the cumulative sum of a variable using the `PARTIALS` modifier.
+
+```sql
+SELECT PARTIALS json->new_entries, sum_agg(json->new_entries) AS cum_new_entries
+FROM json
+TO json
+```
+Sample input:
+
+```json
+{"new_entries" : 10}
+{"new_entries" : 5}
+{"new_entries" : 25}
+{"new_entries" : null}
+{}
+{"new_entries" : 100}
+```
+
+Output:
+
+```json
+{"new_entries" : 10,   "cum_new_entries" : 10}
+{"new_entries" : 5,    "cum_new_entries" : 15}
+{"new_entries" : 25,   "cum_new_entries" : 40}
+{"new_entries" : null, "cum_new_entries" : 40}
+{"new_entries" : null, "cum_new_entries" : 40}
+{"new_entries" : 100,  "cum_new_entries" : 140}
+```
+
+If `PARTIALS`was omitted the result would be equivalent to the last output row. 
+
+### Distinct rows
+
+```sql
+SELECT DISTINCT *
+FROM csv
+```
+
 
 ## Command line examples
 
@@ -297,7 +356,7 @@ spyql "
 
 ### Querying YAML / XML / TOML files
 
-[yq](https://kislyuk.github.io/yq/#) converts yaml, xml and toml files to json, allowing to easily query any of these with spyql:
+[yq](https://kislyuk.github.io/yq/#) converts yaml, xml and toml files to json, allowing to easily query any of these with spyql.
 
 ```sh
 cat file.yaml | yq -c | spyql "SELECT json->a_field FROM json"
@@ -310,24 +369,39 @@ cat file.toml | tomlq -c | spyql "SELECT json->a_field FROM json"
 ```
 
 
-
 ### Kafka to PostegreSQL pipeline
 
-Read data from a kafka topic and write to postgres.
-
-NOTE: sql  options not yet implemented, i.e. output table name and number of records per insert are hardcoded
+Read data from a kafka topic and write to postgres table name `customer`.
 
 ```sh
 kafkacat -b the.broker.com -t the.topic |
-spyql "
+spyql -Otable=customer -Ochunk_size=1 --unbuffered "
 	SELECT
 		json->customer->id AS id,
 		json->customer->name AS name
 	FROM json
-	TO sql('customer_table_name', chunk_size=1)
+	TO sql
 " |
 psql -U an_user_name -h a.host.com a_database_name
 ```
+
+### Monitoring statistics in Kafka
+
+Read data from a kafka topic, continuously calculating statistics.
+
+```sh
+kafkacat -b the.broker.com -t the.topic |
+spyql --unbuffered "
+	SELECT PARTIALS
+        count_agg(*) AS running_count,
+		sum_agg(value) AS running_sum,
+		min_agg(value) AS min_so_far, 
+        value AS current_value
+	FROM json
+	TO csv
+" 
+```
+
 
 ### Sub-queries (piping)
 
@@ -336,7 +410,7 @@ A special file format (spy) is used to efficiently pipe data between queries.
 ```sh
 cat a_file.json |
 spyql "
-	SELECT ' '.join[json->first_name, json->midle_name, json->last_name] AS full_name
+	SELECT ' '.join([json->first_name, json->middle_name, json->last_name]) AS full_name
 	FROM json
 	TO spy" |
 spyql "SELECT full_name, full_name.upper() FROM spy"
