@@ -5,7 +5,8 @@ import spyql.log
 import logging
 import re
 import click
-
+import sys
+import io
 
 query_struct_keywords = [
     "import",
@@ -323,7 +324,7 @@ def parse_options(ctx, param, options):
 ###############
 # run
 ###############
-def run(query, input_opt={}, output_opt={}):
+def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
     query = clean_query(query)
 
     prs, strings = parse(query)
@@ -333,7 +334,7 @@ def run(query, input_opt={}, output_opt={}):
 
     processor = Processor.make_processor(prs, strings, input_opt)
 
-    processor.go(output_opt)
+    processor.go(output_file, output_opt)
 
 
 @click.command()
@@ -361,6 +362,12 @@ def run(query, input_opt={}, output_opt={}):
     ),
 )
 @click.option(
+    "--unbuffered",
+    "-u",
+    is_flag=True,
+    help="Force output to be unbuffered.",
+)
+@click.option(
     "--verbose",
     "-v",
     "verbose",
@@ -382,7 +389,7 @@ def run(query, input_opt={}, output_opt={}):
     ),
 )
 @click.version_option(version="0.1.0")
-def main(query, warning_flag, verbose, input_opt, output_opt):
+def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     """
     Tool to run a SpyQL QUERY over text data.
     For more info visit: https://github.com/dcmoura/spyql
@@ -404,7 +411,12 @@ def main(query, warning_flag, verbose, input_opt, output_opt):
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
 
-    run(query, input_opt, output_opt)
+    output_file = (
+        io.TextIOWrapper(open(sys.stdout.fileno(), "wb", 0), write_through=True)
+        if unbuffered
+        else sys.stdout
+    )
+    run(query, output_file, input_opt, output_opt)
 
 
 if __name__ == "__main__":
