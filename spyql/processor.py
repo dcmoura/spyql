@@ -294,7 +294,7 @@ class Processor:
         input_row_number = 0
 
         self.vars = init_vars()
-        spyql.agg.init_aggs()
+        spyql.agg._init_aggs()
 
         # import user modules
         self.eval_clause(
@@ -347,18 +347,18 @@ class Processor:
 
                 # filter (opt: eventually could be done before exploding)
                 if not where_expr or self.eval_clause("where", where_expr):
-                    # input line is eligeble
+                    # input line is eligible
                     row_number = row_number + 1
                     self.vars["row_number"] = row_number
 
                     if groupby_expr:
                         # group by can ref output columns, but does not depend on the
-                        # executation of the select clause: refs to ouput columns are
+                        # execution of the select clause: refs to output columns are
                         # replaced by the correspondent expression
                         _group_res = self.eval_clause("group by", groupby_expr)
                         # we need to set the group key before running the select because
                         # aggregate functions need to know the group key beforehand
-                        spyql.agg.start_new_agg_row(_group_res)
+                        spyql.agg._start_new_agg_row(_group_res)
 
                     # calculate outputs
                     _res = self.eval_clause("select", select_expr)
