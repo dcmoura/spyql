@@ -1,3 +1,11 @@
+"""
+.. code-block:: sql
+
+    SELECT *
+    FROM json
+
+"""
+
 import operator
 from spyql.nulltype import Null
 
@@ -84,7 +92,7 @@ def max_agg(val):
     return _agg_op(max, val)
 
 
-def array_agg(val, respect_nulls=True):
+def list_agg(val, respect_nulls=True):
     """
     Collects all input values into a list.
     Filters out NULLs when `respect_nulls` is `False`.

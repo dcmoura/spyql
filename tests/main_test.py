@@ -344,8 +344,8 @@ def test_agg():
         ("avg_agg(col1)", lambda x: sum(x) / len(x) if x else NULL, True),
         ("min_agg(col1)", lambda x: min(x) if x else NULL, True),
         ("max_agg(col1)", lambda x: max(x) if x else NULL, True),
-        ("array_agg(col1)", lambda x: list(x), False),
-        ("array_agg(col1, False)", lambda x: list(x), True),
+        ("list_agg(col1)", lambda x: list(x), False),
+        ("list_agg(col1, False)", lambda x: list(x), True),
         ('string_agg(col1,",")', lambda x: ",".join(map(str, x)), True),
         ('string_agg(col1,",",True)', lambda x: ",".join(map(str, x)), False),
         (
@@ -404,7 +404,7 @@ def test_agg():
     # partials
     for tst_list in tst_lists:
         eq_test_nrows(
-            "SELECT PARTIALS array_agg(col1) as a, count_agg(col1) as c1, count_agg(*)"
+            "SELECT PARTIALS list_agg(col1) as a, count_agg(col1) as c1, count_agg(*)"
             f" as c2, first_agg(col1) as f, lag_agg(col1) as l FROM {tst_list}",
             [
                 {
