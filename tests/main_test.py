@@ -169,6 +169,144 @@ def test_basic():
     # negative limit
     eq_test_nrows("SELECT * FROM [1,2,3] LIMIT -10", [])
 
+    # order by (1 col)
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,3] ORDER BY 1", [{"col1": -2}, {"col1": 1}, {"col1": 3}]
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,3] ORDER BY 1 DESC",
+        [{"col1": 3}, {"col1": 1}, {"col1": -2}],
+    )
+    eq_test_nrows(
+        "SELECT abs(col1) as col1 FROM [1,-2,3] ORDER BY 1",
+        [{"col1": 1}, {"col1": 2}, {"col1": 3}],
+    )
+    eq_test_nrows(
+        "SELECT abs(col1) as col1 FROM [1,-2,3] ORDER BY 1 DESC",
+        [{"col1": 3}, {"col1": 2}, {"col1": 1}],
+    )
+    eq_test_nrows(
+        "SELECT col1 FROM [1,-2,3] ORDER BY col1",
+        [{"col1": -2}, {"col1": 1}, {"col1": 3}],
+    )
+    eq_test_nrows(
+        "SELECT col1 FROM [1,-2,3] ORDER BY abs(col1)",
+        [{"col1": 1}, {"col1": -2}, {"col1": 3}],
+    )
+    eq_test_nrows(
+        "SELECT col1 FROM [1,-2,3] ORDER BY abs(col1) DESC",
+        [{"col1": 3}, {"col1": -2}, {"col1": 1}],
+    )
+
+    # order by (1 col, NULL)
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1",
+        [{"col1": -2}, {"col1": 1}, {"col1": 3}, {"col1": NULL}],
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 NULLS LAST",
+        [{"col1": -2}, {"col1": 1}, {"col1": 3}, {"col1": NULL}],
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 NULLS FIRST",
+        [{"col1": NULL}, {"col1": -2}, {"col1": 1}, {"col1": 3}],
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 DESC",
+        [{"col1": NULL}, {"col1": 3}, {"col1": 1}, {"col1": -2}],
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 DESC NULLS FIRST",
+        [{"col1": NULL}, {"col1": 3}, {"col1": 1}, {"col1": -2}],
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 DESC NULLS LAST",
+        [{"col1": 3}, {"col1": 1}, {"col1": -2}, {"col1": NULL}],
+    )
+
+    # order by (multi-cols)
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 1"
+        " ASC,  2 ASC",
+        [
+            {"a": 1, "b": 1},
+            {"a": 1, "b": 2},
+            {"a": 2, "b": 2},
+            {"a": 2, "b": 4},
+            {"a": 3, "b": 0},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 1"
+        " DESC, 2 DESC",
+        list(
+            reversed(
+                [
+                    {"a": 1, "b": 1},
+                    {"a": 1, "b": 2},
+                    {"a": 2, "b": 2},
+                    {"a": 2, "b": 4},
+                    {"a": 3, "b": 0},
+                ]
+            )
+        ),
+    )
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 1"
+        " ASC,  2 DESC",
+        [
+            {"a": 1, "b": 2},
+            {"a": 1, "b": 1},
+            {"a": 2, "b": 4},
+            {"a": 2, "b": 2},
+            {"a": 3, "b": 0},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER"
+        " BY 2,1",
+        [
+            {"a": 3, "b": 0},
+            {"a": 1, "b": 1},
+            {"a": 1, "b": 2},
+            {"a": 2, "b": 2},
+            {"a": 2, "b": 4},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 2"
+        " DESC, 1 DESC",
+        list(
+            reversed(
+                [
+                    {"a": 3, "b": 0},
+                    {"a": 1, "b": 1},
+                    {"a": 1, "b": 2},
+                    {"a": 2, "b": 2},
+                    {"a": 2, "b": 4},
+                ]
+            )
+        ),
+    )
+
+    # order by (with limit / offset / where)
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] WHERE col1 > 0 ORDER BY 1 DESC NULLS LAST",
+        [{"col1": 3}, {"col1": 1}],
+    )
+    eq_test_nrows(
+        "SELECT abs(col1) as col1 FROM [1,-2,NULL,3] ORDER BY 1 LIMIT 2",
+        [{"col1": 1}, {"col1": 2}],
+    )
+    eq_test_nrows(
+        "SELECT abs(col1) as col1 FROM [1,-2,NULL,3] ORDER BY 1 LIMIT 2 OFFSET 1",
+        [{"col1": 2}, {"col1": 3}],
+    )
+    eq_test_nrows(
+        "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 LIMIT 0",
+        [],
+    )
+
     # complex expressions with commas and different types of brackets
     eq_test_1row(
         "SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc,"
@@ -296,8 +434,11 @@ def test_custom_syntax():
     # easy access to dic fields
     eq_test_1row(
         "SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour,"
-        " col1->hello->world.upper() AS caps FROM [[{'three': 3, 'twenty one': 21,"
-        " 'hello':{'world': 'hello world'}}]]",
+        " col1->hello->world.upper() AS caps "
+        "FROM [[{'three': 3, 'twenty one': 21,"
+        " 'hello':{'world': 'hello world'}}]] "
+        "WHERE col1->three > 0 "
+        "ORDER BY col1->three",
         {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"},
     )
 

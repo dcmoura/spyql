@@ -45,6 +45,9 @@ class QuotesHandler:
 
     # replace string placeholders by their actual strings
     def put_strings_back(self, text, quote=True):
+        if not isinstance(text, str):
+            return text
+
         quote_char = '"' if quote else ""
         sids = {m.group(0) for m in re.finditer(self.string_placeholder_re(), text)}
         sids = sids.intersection(self.strings)  # eliminate false positives

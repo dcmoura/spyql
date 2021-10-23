@@ -19,7 +19,7 @@ def mk_user_msg(level, level_color, message, code=None, code_color=colors.lighty
     return (
         colored(level, level_color)
         + f"\t{message}"
-        + f"{': ' + colored(code, code_color) if code else ''}"
+        + f"{': ' + colored(code, code_color) if code is not None else ''}"
     )
 
 

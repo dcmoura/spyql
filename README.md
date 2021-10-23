@@ -92,6 +92,8 @@ SELECT
     [ * | python_expression [ AS output_column_name ] [, ...] ]
     [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
     [ WHERE python_expression ]
+    [ ORDER BY output_column_number | python_expression
+        [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
     [ LIMIT row_count ]
     [ OFFSET num_rows_to_skip ]
     [ TO csv | json | spy | sql | pretty | plot ]
@@ -256,6 +258,14 @@ SELECT hl.md5(col1.encode('utf-8')).hexdigest()
 FROM text
 ```
 
+### Getting the top 5 records
+
+```sql
+SELECT int(score), player_name
+FROM csv
+ORDER BY 1 DESC NULLS LAST, score_date
+LIMIT 5
+```
 
 ## Command line examples
 
