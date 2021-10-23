@@ -1,4 +1,3 @@
-import spyql.log
 from spyql.nulltype import Null
 
 
@@ -9,14 +8,14 @@ class OutputHandler:
     def make_handler(prs):
         """
         Chooses the right handler depending on the kind of query
-        and eventual optimisation opportunities
+        and eventual optimization opportunities
         """
         if prs["group by"] and not prs["partials"]:
             return GroupByDelayedOutSortAtEnd(
                 prs["order by"], prs["limit"], prs["offset"]
             )
         if prs["order by"]:
-            # TODO otimisation: use special handler that only keeps the top n elements
+            # TODO optimization: use special handler that only keeps the top n elements
             #   in memory when LIMIT is defined
             if prs["distinct"]:
                 return DistinctDelayedOutSortAtEnd(
@@ -58,7 +57,7 @@ class OutputHandler:
 
 
 class LineInLineOut(OutputHandler):
-    """Simple handler that immediatly writes every processed row"""
+    """Simple handler that immediately writes every processed row"""
 
     def handle_result(self, result, *_):
         self.write(result)
@@ -69,12 +68,11 @@ class LineInLineOut(OutputHandler):
 
 
 class LineInDistinctLineOut(OutputHandler):
-    """In-memory distinct handler that immediatly writes every non-duplicated row"""
+    """In-memory distinct handler that immediately writes every non-duplicated row"""
 
     def __init__(self, limit, offset):
         super().__init__(limit, offset)
         self.output_rows = set()
-        spyql.log.user_info("Current implementation of DISTINCT is in-memory")
 
     def handle_result(self, result, *_):
         # uses a dict to store distinct results instead of storing all rows
@@ -99,11 +97,6 @@ class DelayedOutSortAtEnd(OutputHandler):
         super().__init__(limit, offset)
         self.orderby = orderby
         self.output_rows = []
-        if orderby:
-            spyql.log.user_info(
-                "Current implementation of ORDER BY loads all output records into"
-                " memory"
-            )
 
     def handle_result(self, result, sort_keys, *_):
         self.output_rows.append({"data": result, "sort_keys": sort_keys})
@@ -116,7 +109,7 @@ class DelayedOutSortAtEnd(OutputHandler):
         # 1. sorts everything
         if self.orderby:
             for i in reversed(range(len(self.orderby))):
-                # taking advange of list.sort() being stable to sort elememts from minor
+                # taking advantage of list.sort being stable to sort elements from minor
                 # to major criteria (not be the most efficient way but straightforward)
                 self.output_rows.sort(
                     key=lambda row: (
@@ -146,7 +139,6 @@ class GroupByDelayedOutSortAtEnd(DelayedOutSortAtEnd):
     def __init__(self, orderby, limit, offset):
         super().__init__(orderby, limit, offset)
         self.output_rows = dict()
-        spyql.log.user_info("Current implementation of GROUP BY is in-memory")
 
     def handle_result(self, result, sort_keys, group_key):
         # uses a dict to store intermidiate group by results instead of storing all rows
@@ -168,7 +160,6 @@ class DistinctDelayedOutSortAtEnd(DelayedOutSortAtEnd):
     def __init__(self, orderby, limit, offset):
         super().__init__(orderby, limit, offset)
         self.output_rows = dict()
-        spyql.log.user_info("Current implementation of DISTINCT is in-memory")
 
     def handle_result(self, result, sort_keys, *_):
         # uses a dict to store distinct results instead of storing all rows
