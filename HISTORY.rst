@@ -2,6 +2,12 @@
 History
 =======
 
+0.3.0 (2021-11-18)
+------------------
+* Added aggretation/window functions
+* Added GROUP BY clause
+* Added SELECT DISTINCT modifier
+* Added SELECT PARTIALS modifier for running analytical/window queries
 
 0.2.0 (2021-10-23)
 ------------------
