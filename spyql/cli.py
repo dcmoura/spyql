@@ -7,6 +7,7 @@ import re
 import click
 import sys
 import io
+import spyql
 
 query_struct_keywords = [
     "import",
@@ -388,7 +389,7 @@ def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
         " (default)."
     ),
 )
-@click.version_option(version="0.1.0")
+@click.version_option(version=spyql.__version__)
 def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     """
     Tool to run a SpyQL QUERY over text data.
