@@ -388,14 +388,14 @@ def test_agg():
         tst_list_clean = list(filter(lambda x: x is not NULL, tst_list))
         for sql_func, tst_func, ignore_nulls in funcs:
             col_name = sql_func[:5]
-            l = tst_list_clean if ignore_nulls else tst_list
+            lst = tst_list_clean if ignore_nulls else tst_list
             eq_test_1row(
                 f"SELECT {sql_func} as {col_name} FROM {tst_list}",
-                {col_name: tst_func(l)},
+                {col_name: tst_func(lst)},
             )
             eq_test_1row(
                 f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
-                {"a": tst_func(l), "b": tst_func(l) * 2},
+                {"a": tst_func(lst), "b": tst_func(lst) * 2},
             )
 
     # this would return a row with 0 in standard SQL, but in SpyQL returns no rows
