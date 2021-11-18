@@ -5,9 +5,7 @@ import spyql.log
 import logging
 import re
 import click
-import sys
-import io
-import spyql
+
 
 query_struct_keywords = [
     "import",
@@ -15,42 +13,11 @@ query_struct_keywords = [
     "from",
     "explode",
     "where",
-    "group by",
     "order by",
     "limit",
     "offset",
     "to",
 ]
-
-
-def get_agg_funcs():
-    import spyql.agg
-    import inspect
-
-    # TODO replace this by register mechanism to allow for user-defined aggregation
-    funcs = inspect.getmembers(spyql.agg, inspect.isfunction)
-    return {f[0] for f in funcs}
-
-
-agg_funcs = get_agg_funcs()
-
-
-def extract_funcs(expr):
-    return re.findall(r"(\w+)\s*\(", expr)
-
-
-def has_agg_func(expr):
-    return agg_funcs.intersection(extract_funcs(expr))
-
-
-def throw_error_if_has_agg_func(expr, clause_name):
-    a = has_agg_func(expr)
-    if has_agg_func(expr):
-        spyql.log.user_error(
-            f"aggregate functions are not allowed in {clause_name} clause",
-            SyntaxError("bad query"),
-            ",".join(a),
-        )
 
 
 def clean_query(q):
@@ -65,7 +32,7 @@ def parse_structure(q):
     last_pos = 0
     key_matches = []
     for key in keys:
-        entry = re.compile(fr"\s+{key}\s+".replace(" ", r"\s+"), re.IGNORECASE).search(
+        entry = re.compile(fr"\s+{key}\s+".replace(" ", "\s+"), re.IGNORECASE).search(
             q, last_pos
         )
         if entry:
@@ -94,9 +61,9 @@ def parse_structure(q):
             filter(
                 None,
                 [
-                    re.compile(
-                        fr"\s+{k}\s+".replace(" ", r"\s+"), re.IGNORECASE
-                    ).search(q[st:nd])
+                    re.compile(fr"\s+{k}\s+".replace(" ", "\s+"), re.IGNORECASE).search(
+                        q[st:nd]
+                    )
                     for k in keys
                 ],
             )
@@ -120,12 +87,6 @@ def pythonize(s):
     # make sure the `as` keyword is always lowcase
     # (currently only needed for imports)
     s = re.compile(r"\s+AS\s+", re.IGNORECASE).sub(" as ", s)
-
-    # replace count_agg(*) and count_distinct_agg(*) by appropriate calls
-    s = re.compile(r"\bcount\_agg\s*\(\s*\*\s*\)").sub("count_agg(1)", s)
-    s = re.compile(r"\bcount\_distinct\_agg\s*\(\s*\*\s*\)").sub(
-        "count_distinct_agg(tuple(_values))", s
-    )
 
     # easy shortcut for navigating through dics (of dics)
     # e.g.   `json->hello->'planet hearth'` converts into
@@ -174,75 +135,56 @@ def split_multi_expr_clause(s):
 def parse_select(sel, strings):
     """splits the SELECT clause into columns and find their names"""
     # TODO support column alias without AS
-    modif_pattern = r"^\s*(?:(DISTINCT)\s+)?(?:(PARTIALS)\s+)?"
-    modifs = re.search(modif_pattern, sel.upper())
-    has_distinct = "DISTINCT" in modifs.groups()
-    has_partials = "PARTIALS" in modifs.groups()
-    sel = sel[modifs.span()[1] :]  # remove modifiers from expression
 
-    res = []
+    sel = [c.strip() for c in split_multi_expr_clause(sel)]
+    new_sel = []
     as_pattern = re.compile(r"\s+AS\s+", re.IGNORECASE)
-    for expr in split_multi_expr_clause(sel):
-        sas = re.search(as_pattern, expr)
+    for i in range(len(sel)):
+        c = sel[i]
+        sas = re.search(as_pattern, c)
         name = ""
         if sas:
-            name = expr[(sas.span()[1]) :].strip()
-            expr = expr[: (sas.span()[0])]
+            name = c[(sas.span()[1]) :].strip()
+            c = c[: (sas.span()[0])]
         else:
-            # automatic output column name from expression
+            # automatic output column name from expresopm
             # removes json 'variable' reference (visual garbage)
-            name = re.compile(r"(\b)json(->|\[)").sub(r"\1", expr)
+            name = re.compile(r"(\s|^)json(->|\[)").sub(r"\1", c)
             # makes the string a valid python variable name
             name = spyql.utils.make_str_valid_varname(strings.put_strings_back(name))
 
-        if expr.strip() == "*":
-            expr = "*"
+        if c.strip() == "*":
+            c = "*"
             name = "*"
         else:
             name = strings.put_strings_back(name, quote=False)
-            expr = f"{make_expr_ready(expr, strings)}"
+            c = f"{make_expr_ready(c, strings)}"
 
-        res.append({"name": name, "expr": expr})
+        new_sel.append({"name": name, "expr": c})
 
-    return res, has_distinct, has_partials
+    return new_sel
 
 
-def parse_orderby(clause, strings):
+def parse_orderby(sel, strings):
     """splits the ORDER BY clause and handles modifiers"""
 
+    exprs = [e.strip() for e in split_multi_expr_clause(sel)]
     res = []
     mod_pattern = re.compile(r"(?:\s+(DESC|ASC))?(?:\s+NULLS\s+(FIRST|LAST)\s*)?$")
-    for expr in split_multi_expr_clause(clause):
+    for i in range(len(exprs)):
+        expr = exprs[i]
         modifs = re.search(mod_pattern, expr.upper())
         rev = "DESC" in modifs.groups()
-        rev_nulls = ((not rev) and "FIRST" in modifs.groups()) or (
-            rev and "LAST" in modifs.groups()
+        nulls_first = "FIRST" in modifs.groups() or (
+            rev and "LAST" not in modifs.groups()
         )
         expr = expr[: (modifs.span()[0])]  # remove modifiers
         try:
             expr = int(expr)  # special case: expression is output column number
         except ValueError:
-            expr = make_expr_ready(expr, strings)
+            pass
 
-        res.append({"expr": expr, "rev": rev, "rev_nulls": rev_nulls})
-
-    return res
-
-
-def parse_groupby(clause, select, strings):
-    """splits the GROUP BY clause"""
-
-    res = []
-    for expr in split_multi_expr_clause(clause):
-        try:
-            expr = int(expr)  # special case: expression is output column number
-            # in the case of group by, the expression is copied from select to avoid
-            # group by depending on select (see spyql.processor._go)
-            expr = select[expr - 1]["expr"]
-        except ValueError:
-            expr = make_expr_ready(expr, strings)
-        throw_error_if_has_agg_func(expr, "GROUP BY")
-        res.append({"expr": expr})
+        res.append({"expr": expr, "rev": rev, "nulls_first": nulls_first})
 
     return res
 
@@ -255,7 +197,7 @@ def parse(query):
     """parses the spyql query"""
     strings = QuotesHandler()
     query = strings.extract_strings(query)
-    query_has_agg_funcs = has_agg_func(query)
+
     prs = parse_structure(query)
 
     if not prs["select"]:
@@ -263,39 +205,16 @@ def parse(query):
             "could not parse query", SyntaxError("SELECT keyword is missing")
         )
 
-    prs["select"], prs["distinct"], prs["partials"] = parse_select(
-        prs["select"], strings
-    )
+    prs["select"] = parse_select(prs["select"], strings)
 
     for clause in set(query_struct_keywords) - {
         "select",
         "limit",
         "offset",
-        "group by",
         "order by",
     }:
         if prs[clause]:
-            if clause in {"where", "from"}:
-                throw_error_if_has_agg_func(prs[clause], clause.upper())
             prs[clause] = make_expr_ready(prs[clause], strings)
-
-    for clause in {"group by"}:
-        if prs[clause]:
-            prs[clause] = parse_groupby(prs[clause], prs["select"], strings)
-        elif query_has_agg_funcs:
-            # creates a dummy group by with a constant if there are agg functions
-            # e.g. `select count_agg(*) from csv`
-            prs[clause] = [{"expr": "'_OVERALL_'"}]
-            if prs["order by"]:
-                spyql.log.user_warning(
-                    "ORDER BY is useless since output will have a single result"
-                )
-        if prs[clause] and prs["distinct"]:
-            # This is feasible to implement but currently not supported
-            spyql.log.user_error(
-                "DISTINCT cannot be used in aggregation queries",
-                SyntaxError("bad query"),
-            )
 
     for clause in {"order by"}:
         if prs[clause]:
@@ -325,7 +244,7 @@ def parse_options(ctx, param, options):
 ###############
 # run
 ###############
-def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
+def run(query, input_opt={}, output_opt={}):
     query = clean_query(query)
 
     prs, strings = parse(query)
@@ -335,7 +254,7 @@ def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
 
     processor = Processor.make_processor(prs, strings, input_opt)
 
-    processor.go(output_file, output_opt)
+    processor.go(output_opt)
 
 
 @click.command()
@@ -363,12 +282,6 @@ def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
     ),
 )
 @click.option(
-    "--unbuffered",
-    "-u",
-    is_flag=True,
-    help="Force output to be unbuffered.",
-)
-@click.option(
     "--verbose",
     "-v",
     "verbose",
@@ -389,19 +302,18 @@ def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
         " (default)."
     ),
 )
-@click.version_option(version=spyql.__version__)
-def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
+@click.version_option(version="0.1.0")
+def main(query, warning_flag, verbose, input_opt, output_opt):
     """
     Tool to run a SpyQL QUERY over text data.
     For more info visit: https://github.com/dcmoura/spyql
 
     \b
     [ IMPORT python_module [ AS identifier ] [, ...] ]
-    SELECT [ DISTINCT | PARTIALS ]
+    SELECT
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
         [ WHERE python_expression ]
-        [ GROUP BY output_column_number | python_expression  [, ...] ]
         [ ORDER BY output_column_number | python_expression
             [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
         [ LIMIT row_count ]
@@ -412,12 +324,7 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
 
-    output_file = (
-        io.TextIOWrapper(open(sys.stdout.fileno(), "wb", 0), write_through=True)
-        if unbuffered
-        else sys.stdout
-    )
-    run(query, output_file, input_opt, output_opt)
+    run(query, input_opt, output_opt)
 
 
 if __name__ == "__main__":

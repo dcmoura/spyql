@@ -9,6 +9,8 @@ import json
 import csv
 import io
 import sqlite3
+import math
+from functools import reduce
 
 
 # --------  AUX FUNCTIONS  --------
@@ -46,7 +48,7 @@ def list_of_struct2py(vals):
     if not vals:
         return []
     header = [str(list(vals[0].keys()))]
-    rows = [str(list(val.values())) for val in vals]
+    rows = [str(tuple(val.values())) for val in vals]
     return header + rows
 
 
@@ -169,6 +171,25 @@ def test_basic():
     # negative limit
     eq_test_nrows("SELECT * FROM [1,2,3] LIMIT -10", [])
 
+    # complex expressions with commas and different types of brackets
+    eq_test_1row(
+        "SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc,"
+        " 2 AS two FROM [1]",
+        {"calc": 30, "two": 2},
+    )
+
+    # import
+    eq_test_1row(
+        "IMPORT sys SELECT sys.version_info.major AS major_ver", {"major_ver": 3}
+    )
+
+    eq_test_1row(
+        "IMPORT numpy AS np, sys SELECT (np.array([1,2,3])+1).tolist() AS a",
+        {"a": [2, 3, 4]},
+    )
+
+
+def test_orderby():
     # order by (1 col)
     eq_test_nrows(
         "SELECT * FROM [1,-2,3] ORDER BY 1", [{"col1": -2}, {"col1": 1}, {"col1": 3}]
@@ -307,22 +328,175 @@ def test_basic():
         [],
     )
 
-    # complex expressions with commas and different types of brackets
-    eq_test_1row(
-        "SELECT (col1 + 3) + ({'a': 1}).get('b', 6) + [10,20,30][(1+(3-2))-1] AS calc,"
-        " 2 AS two FROM [1]",
-        {"calc": 30, "two": 2},
+
+def test_agg():
+    # aggregate functions (overall)
+    funcs = (
+        # sql func, python func, remove nulls on python func?
+        ("sum_agg(col1)", lambda x: sum(x) if x else NULL, True),
+        (
+            "prod_agg(col1)",
+            lambda x: reduce(lambda a, b: a * b, x) if x else NULL,
+            True,
+        ),
+        ("count_agg(col1)", len, True),
+        ("count_agg(*)", len, False),
+        ("avg_agg(col1)", lambda x: sum(x) / len(x) if x else NULL, True),
+        ("min_agg(col1)", lambda x: min(x) if x else NULL, True),
+        ("max_agg(col1)", lambda x: max(x) if x else NULL, True),
+        ("list_agg(col1)", lambda x: list(x), False),
+        ("list_agg(col1, False)", lambda x: list(x), True),
+        ('string_agg(col1,",")', lambda x: ",".join(map(str, x)), True),
+        ('string_agg(col1,",",True)', lambda x: ",".join(map(str, x)), False),
+        (
+            "sorted(list(set_agg(col1)), key=lambda x: (x is NULL, x))",
+            lambda y: sorted(list(set(y)), key=lambda x: (x is NULL, x)),
+            False,
+        ),
+        ("sorted(list(set_agg(col1, False)))", lambda y: sorted(list(set(y))), True),
+        ("first_agg(col1)", lambda x: x[0] if x else NULL, False),
+        ("first_agg(col1, False)", lambda x: x[0] if x else NULL, True),
+        ("last_agg(col1)", lambda x: x[-1] if x else NULL, False),
+        ("last_agg(col1, False)", lambda x: x[-1] if x else NULL, True),
+        ("lag_agg(col1)", lambda x: x[-2] if len(x) > 1 else NULL, False),
+        ("lag_agg(col1,2)", lambda x: x[-3] if len(x) > 2 else NULL, False),
+        ("count_distinct_agg(col1)", lambda x: len(set(x)), True),
+        ("count_distinct_agg(*)", lambda x: len(set(x)), False),
+        (
+            "any_agg(col1 == 1)",
+            lambda x: any(map(lambda y: y == 1, x)) if x else NULL,
+            True,
+        ),
+        (
+            "every_agg(col1 > 0)",
+            lambda x: all(map(lambda y: y > 0, x)) if x else NULL,
+            True,
+        ),
     )
 
-    # import
+    tst_lists = [
+        [NULL],
+        [NULL, NULL, NULL, NULL],
+        [NULL, 11, NULL],
+        [NULL, 11, 5, 10, NULL, 3, 3, 10, 4],
+        [12],
+        range(1, 21),
+        range(-10, 6),
+        [int(math.cos(x) * 100) / 100.0 for x in range(100)],
+    ]
+    for tst_list in tst_lists:
+        tst_list_clean = list(filter(lambda x: x is not NULL, tst_list))
+        for sql_func, tst_func, ignore_nulls in funcs:
+            col_name = sql_func[:5]
+            lst = tst_list_clean if ignore_nulls else tst_list
+            eq_test_1row(
+                f"SELECT {sql_func} as {col_name} FROM {tst_list}",
+                {col_name: tst_func(lst)},
+            )
+            eq_test_1row(
+                f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
+                {"a": tst_func(lst), "b": tst_func(lst) * 2},
+            )
+
+    # this would return a row with 0 in standard SQL, but in SpyQL returns no rows
+    eq_test_nrows("SELECT count(*) FROM []", [])
+
+    # partials
+    for tst_list in tst_lists:
+        eq_test_nrows(
+            "SELECT PARTIALS list_agg(col1) as a, count_agg(col1) as c1, count_agg(*)"
+            f" as c2, first_agg(col1) as f, lag_agg(col1) as l FROM {tst_list}",
+            [
+                {
+                    "a": list(tst_list[:n]),
+                    "c1": len(list(filter(lambda el: el is not NULL, tst_list[:n]))),
+                    "c2": n,
+                    "f": tst_list[0],
+                    "l": NULL if n < 2 else tst_list[n - 2],
+                }
+                for n in range(1, len(tst_list) + 1)
+            ],
+        )
+
+
+def test_groupby():
+    eq_test_1row("SELECT 1 as a FROM range(1) GROUP BY col1", {"a": 1})
     eq_test_1row(
-        "IMPORT sys SELECT sys.version_info.major AS major_ver", {"major_ver": 3}
+        "SELECT 1 as a, count_agg(*) as c FROM range(1) GROUP BY 1", {"a": 1, "c": 1}
+    )
+    eq_test_1row(
+        "SELECT 1 as a, count_agg(*) as c FROM range(10) GROUP BY 1", {"a": 1, "c": 10}
+    )
+    eq_test_1row(
+        "SELECT 1 as a, 2 as b, count_agg(*) as c FROM range(100) GROUP BY 1, 2",
+        {"a": 1, "b": 2, "c": 100},
+    )
+    eq_test_nrows(
+        "SELECT col1 % 2 as a, 2 as b, count_agg(*) as c, min_agg(col1) as mn,"
+        " max_agg(col1) as mx FROM range(101) GROUP BY 1, 1+1",
+        [
+            {"a": 0, "b": 2, "c": 51, "mn": 0, "mx": 100},
+            {"a": 1, "b": 2, "c": 50, "mn": 1, "mx": 99},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 % 3 as a, 2 as b, max_agg(col1) as mx FROM range(100) GROUP BY 1,"
+        " 2 ORDER BY 1 DESC",
+        [
+            {"a": 2, "b": 2, "mx": 98},
+            {"a": 1, "b": 2, "mx": 97},
+            {"a": 0, "b": 2, "mx": 99},
+        ],
+    )
+    eq_test_nrows(
+        "SELECT col1 % 3 as a, 2 as b, max_agg(col1) as mx FROM range(100) GROUP BY 1,"
+        " 2 ORDER BY max_agg(col1)",
+        [
+            {"a": 1, "b": 2, "mx": 97},
+            {"a": 2, "b": 2, "mx": 98},
+            {"a": 0, "b": 2, "mx": 99},
+        ],
     )
 
-    eq_test_1row(
-        "IMPORT numpy AS np, sys SELECT (np.array([1,2,3])+1).tolist() AS a",
-        {"a": [2, 3, 4]},
+
+def test_distinct():
+    eq_test_1row("SELECT DISTINCT 1 as a FROM range(1)", {"a": 1})
+    eq_test_1row("SELECT DISTINCT 1 as a FROM range(10)", {"a": 1})
+    eq_test_1row("SELECT DISTINCT 1 as a, 2 as b FROM range(100)", {"a": 1, "b": 2})
+    eq_test_nrows(
+        "SELECT DISTINCT col1 % 2 as a, 2 as b FROM range(100)",
+        [{"a": 0, "b": 2}, {"a": 1, "b": 2}],
     )
+    eq_test_nrows(
+        "SELECT DISTINCT col1 % 3 as a, 2 as b FROM range(100) ORDER BY 1 DESC",
+        [{"a": 2, "b": 2}, {"a": 1, "b": 2}, {"a": 0, "b": 2}],
+    )
+    eq_test_nrows(
+        "SELECT DISTINCT -(col1%3) as a, -(col1%2) as b FROM range(90) ORDER BY 1,2",
+        [
+            {"a": -2, "b": -1},
+            {"a": -2, "b": 0},
+            {"a": -1, "b": -1},
+            {"a": -1, "b": 0},
+            {"a": 0, "b": -1},
+            {"a": 0, "b": 0},
+        ],
+    )
+
+    # Distinct jsons
+    res = run_spyql(
+        "SELECT DISTINCT json FROM json EXPLODE json->a TO json",
+        data=(
+            '{"a": [1, 2, 2], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
+            ' "four"}\n'
+        ),
+    )
+    assert json_output(res.output) == [
+        {"a": 1, "b": "three"},
+        {"a": 2, "b": "three"},
+        {"a": 4, "b": "four"},
+    ]
+    assert res.exit_code == 0
 
 
 def test_null():
@@ -465,6 +639,9 @@ def test_errors():
     exception_test("SELECT int('abcde')", ValueError, options=["-Werror"])
     exception_test("SELECT float('')", ValueError, options=["-Werror"])
     exception_test("SELECT float('')", ValueError, options=["-Werror"])
+    exception_test("SELECT DISTINCT count_agg(1)", SyntaxError)
+    exception_test("SELECT count_agg(1) GROUP BY 1", SyntaxError)
+    exception_test("SELECT 1 FROM range(3) WHERE max_agg(col1) > 0", SyntaxError)
 
 
 def test_sql_output():

@@ -239,10 +239,17 @@ NULL_SAFE_FUNCS = {
 class NullSafeDict(dict):
     __slots__ = ()  # no __dict__
 
+    @staticmethod
+    def none2null(adic):
+        def none2null_el(el):
+            return [NULL if x is None else x for x in el] if type(el) is list else el
+
+        return {k: NULL if v is None else none2null_el(v) for k, v in adic.items()}
+
     def __init__(self, adic, **kwargs):
         super().__init__(
             # converts None -> NULL
-            {k: NULL if v is None else v for k, v in adic.items()},
+            NullSafeDict.none2null(adic),
             **kwargs
         )
 
@@ -250,6 +257,14 @@ class NullSafeDict(dict):
     def __missing__(self, key):
         spyql.log.user_warning4func("key not found", KeyError(key), key)
         return NULL
+
+    def __hash__(self):
+        # TODO make dict immutable
+        import json
+
+        # TODO check if this is sufficienly efficient...
+        # This only needs to guarantee that two equivalent dicts have the same hash
+        return hash(json.dumps(self, default=lambda x: str(x), sort_keys=True))
 
 
 # returns default if val is NULL otherwise returns val

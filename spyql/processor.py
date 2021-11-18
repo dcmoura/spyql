@@ -5,7 +5,6 @@ import sys
 import io
 import re
 import os
-from collections.abc import Iterable
 from itertools import islice, chain
 from io import StringIO
 
@@ -13,7 +12,8 @@ from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
 import spyql.nulltype
 import spyql.log
-from spyql.utils import make_str_valid_varname
+from spyql.utils import make_str_valid_varname, isiterable
+import spyql.agg
 
 
 def init_vars():
@@ -23,6 +23,7 @@ def init_vars():
     exec(
         "from datetime import datetime, date, timezone\n"
         "from spyql.nulltype import *\n"
+        "from spyql.agg import *\n"
         "from math import *\n"
         "import re\n",
         {},
@@ -155,10 +156,9 @@ class Processor:
         if expr == "*":
             return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
 
-        if isinstance(
-            expr, int
-        ):  # special case: expression is out col number (1-based)
-            return [f"_res[{expr-1}]"]
+        if isinstance(expr, int):
+            # special case: expression is out col number (1-based)
+            return [f"_res[{expr-1}]"]  # reuses existing result
 
         for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
@@ -170,11 +170,15 @@ class Processor:
         """
         True if clause can only have a single expression
         """
-        return clause not in {"select", "order by"}
+        return clause not in {
+            "select",
+            "group by",
+            "order by",
+        }
 
     def compile_clause(self, clause, clause_modifier=None, mode="eval"):
         """
-        Compiles a clause of the select statment
+        Compiles a clause of the query
         """
         prs_clause = self.prs[clause]
         if not prs_clause:
@@ -201,7 +205,7 @@ class Processor:
             clause_exprs = [
                 item for sublist in clause_exprs for item in sublist
             ]  # flatten (because of '*')
-            clause_exprs = "[" + ",".join(clause_exprs) + "]"
+            clause_exprs = ",".join(clause_exprs) + ","  # tuple constructor
 
         try:
             return compile(clause_exprs, f"<{clause}>", mode)
@@ -237,7 +241,7 @@ class Processor:
             return
         cmd = eval if mode == "eval" else exec
         try:
-            return cmd(clause_exprs, {}, self.vars)
+            return cmd(clause_exprs, self.vars, self.vars)
         except Exception as main_exception:
             prs_clause = self.prs[clause]
             if not self.is_clause_single(clause):
@@ -249,7 +253,7 @@ class Processor:
                         expr = prs_clause[c]["expr"]
                         translation = self.prepare_expression(expr)
                         for trans in translation:
-                            cmd(trans, {}, self.vars)
+                            cmd(trans, self.vars, self.vars)
                     except Exception as expr_exception:
                         spyql.log.user_error(
                             f"could not evaluate {clause.upper()} expression #{c+1}",
@@ -265,9 +269,9 @@ class Processor:
             )
 
     # main
-    def go(self, output_options):
+    def go(self, output_file, output_options):
         output_handler = OutputHandler.make_handler(self.prs)
-        writer = Writer.make_writer(self.prs["to"], sys.stdout, output_options)
+        writer = Writer.make_writer(self.prs["to"], output_file, output_options)
         output_handler.set_writer(writer)
         nrows_in = self._go(output_handler)
         output_handler.finish()
@@ -275,19 +279,22 @@ class Processor:
         spyql.log.user_info("#rows out", output_handler.rows_written)
 
     def _go(self, output_handler):
-        select_expr = []
+        select_expr = None
         where_expr = None
         explode_expr = None
         explode_cmd = None
         explode_its = [None]  # 1 element by default (no explosion)
+        groupby_expr = None
         orderby_expr = None
         _values = []
-        _res = []
-        _sort_res = []
+        _res = tuple()
+        _group_res = tuple()
+        _sort_res = tuple()
         row_number = 0
         input_row_number = 0
 
         self.vars = init_vars()
+        spyql.agg._init_aggs()
 
         # import user modules
         self.eval_clause(
@@ -311,7 +318,7 @@ class Processor:
                 continue
 
             # print header
-            if not select_expr:  # 1st input data row
+            if select_expr is None:  # 1st input data row
                 self.handle_1st_data_row(_values)
                 output_handler.writer.writeheader(
                     self.make_out_cols_names(out_cols_names)
@@ -322,6 +329,7 @@ class Processor:
                 select_expr = self.compile_clause("select")
                 where_expr = self.compile_clause("where")
                 explode_expr = self.compile_clause("explode")
+                groupby_expr = self.compile_clause("group by")
                 orderby_expr = self.compile_clause("order by")
 
             if explode_expr:
@@ -339,18 +347,30 @@ class Processor:
 
                 # filter (opt: eventually could be done before exploding)
                 if not where_expr or self.eval_clause("where", where_expr):
-                    # input line is eligeble
+                    # input line is eligible
                     row_number = row_number + 1
                     self.vars["row_number"] = row_number
 
+                    if groupby_expr:
+                        # group by can ref output columns, but does not depend on the
+                        # execution of the select clause: refs to output columns are
+                        # replaced by the correspondent expression
+                        _group_res = self.eval_clause("group by", groupby_expr)
+                        # we need to set the group key before running the select because
+                        # aggregate functions need to know the group key beforehand
+                        spyql.agg._start_new_agg_row(_group_res)
+
                     # calculate outputs
                     _res = self.eval_clause("select", select_expr)
+
                     if orderby_expr:
+                        # in the order by clause, references to output columns use the
+                        # outputs of the evaluation of the select expression
                         self.vars["_res"] = _res
                         _sort_res = self.eval_clause("order by", orderby_expr)
 
                     is_done = output_handler.handle_result(
-                        _res, _sort_res
+                        _res, _sort_res, _group_res
                     )  # deal with output
                     if is_done:
                         # e.g. when reached limit
@@ -367,9 +387,9 @@ class PythonExprProcessor(Processor):
     def get_input_iterator(self):
         e = self.eval_clause("from", self.compile_clause("from"))
         if e:
-            if not isinstance(e, Iterable):
+            if not isiterable(e):
                 e = [e]
-            if not isinstance(e[0], Iterable):
+            if not isiterable(e[0]):
                 e = [[el] for el in e]
         return e
 
