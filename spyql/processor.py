@@ -7,6 +7,7 @@ import re
 import os
 from itertools import islice, chain
 from io import StringIO
+import copy
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
@@ -76,7 +77,7 @@ class Processor:
         self.prs = prs  # parsed query
         self.strings = strings  # quoted strings
         self.input_col_names = []  # column names of the input data
-        self.translations = (
+        self.translations = copy.deepcopy(
             spyql.nulltype.NULL_SAFE_FUNCS
         )  # map for alias, functions to be renamed...
         self.has_header = False
@@ -99,21 +100,25 @@ class Processor:
         """
         self.n_input_cols = len(row) if row else 0
 
+        default_col_names = [
+            self.default_col_name(_i) for _i in range(self.n_input_cols)
+        ]
+        col_values_expr = [f"_values[{_i}]" for _i in range(self.n_input_cols)]
         # dictionary to translate col names to accesses to `_values`
-        self.translations.update(
-            {
-                self.default_col_name(_i): f"_values[{_i}]"
-                for _i in range(self.n_input_cols)
-            }
-        )
+        self.translations.update(dict(zip(default_col_names, col_values_expr)))
         if self.input_col_names:
             # TODO check if len(input_col_names) == self.n_input_cols
-            self.translations.update(
-                {
-                    self.input_col_names[_i]: f"_values[{_i}]"
-                    for _i in range(self.n_input_cols)
-                }
-            )
+            self.translations.update(dict(zip(self.input_col_names, col_values_expr)))
+
+        # metadata: list of column names
+        self.vars["_names"] = (
+            self.input_col_names if self.input_col_names else default_col_names
+        )
+        # list of [col1,col2,...]
+        cols_expr = "[" + ",".join(col_values_expr) + "]"
+        self.translations["cols"] = cols_expr
+        # dict of {col1: value1, ...}
+        self.translations["row"] = f"NullSafeDict(dict(zip(_names, {cols_expr})))"
 
     def make_out_cols_names(self, out_cols_names):
         """
