@@ -435,7 +435,7 @@ class JSONProcessor(Processor):
         super().__init__(prs, strings)
         jsonlib.loads('{"a": 1}', **options)  # test options
         self.options = options
-        self.translations.update({"json": "_values[0]"})  # first column alias as json
+        self.input_col_names = ["json"]
 
     # 1 row = 1 json
     def get_input_iterator(self):
