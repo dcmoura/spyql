@@ -626,6 +626,107 @@ def test_processors():
     )
 
 
+def test_metadata():
+    eq_test_nrows(
+        "SELECT cols, _values, _names, row FROM csv",
+        [
+            {
+                "cols": [NULL, 2, 3],
+                "_values": ["", "2", "3"],
+                "_names": ["a", "b", "c"],
+                "row": {"a": NULL, "b": 2, "c": 3},
+            },
+            {
+                "cols": [4, 5, 6],
+                "_values": ["4", "5", "6"],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 4, "b": 5, "c": 6},
+            },
+            {
+                "cols": [NULL, 8, 9],
+                "_values": ["", "8", "9"],
+                "_names": ["a", "b", "c"],
+                "row": {"a": NULL, "b": 8, "c": 9},
+            },
+        ],
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
+    )
+    eq_test_nrows(
+        "SELECT cols, _values, _names, row FROM csv",
+        [
+            {
+                "cols": [NULL, 2, 3],
+                "_values": ["", "2", "3"],
+                "_names": ["col1", "col2", "col3"],
+                "row": {"col1": NULL, "col2": 2, "col3": 3},
+            },
+            {
+                "cols": [4, 5, 6],
+                "_values": ["4", "5", "6"],
+                "_names": ["col1", "col2", "col3"],
+                "row": {"col1": 4, "col2": 5, "col3": 6},
+            },
+            {
+                "cols": [NULL, 8, 9],
+                "_values": ["", "8", "9"],
+                "_names": ["col1", "col2", "col3"],
+                "row": {"col1": NULL, "col2": 8, "col3": 9},
+            },
+        ],
+        data=",2,3\n4,5,6\n,8,9",
+        options=["-Idelimiter=,", "-Iheader=False"],
+    )
+    eq_test_1row(
+        "SELECT cols, _values, _names, row FROM json",
+        {
+            "cols": [{"a": 1}],
+            "_values": [{"a": 1}],
+            "_names": ["json"],
+            "row": {"json": {"a": 1}},
+        },
+        data='{"a": 1}\n',
+    )
+    eq_test_1row(
+        "SELECT cols, _values, _names, row FROM text",
+        {
+            "cols": ["hello"],
+            "_values": ["hello"],
+            "_names": ["col1"],
+            "row": {"col1": "hello"},
+        },
+        data="hello\n",
+    )
+    eq_test_nrows(
+        "SELECT cols, _values, _names, row FROM spy",
+        [
+            {
+                "cols": [1, NULL, 3],
+                "_values": [1, NULL, 3],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 1, "b": NULL, "c": 3},
+            },
+            {
+                "cols": [4, 5, 6],
+                "_values": [4, 5, 6],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 4, "b": 5, "c": 6},
+            },
+            {
+                "cols": [7, 8, 9],
+                "_values": [7, 8, 9],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 7, "b": 8, "c": 9},
+            },
+        ],
+        data="".join(
+            [
+                SpyWriter.pack(line)
+                for line in [["a", "b", "c"], [1, NULL, 3], [4, 5, 6], [7, 8, 9]]
+            ]
+        ),
+    )
+
+
 def test_custom_syntax():
     # easy access to dic fields
     eq_test_1row(
