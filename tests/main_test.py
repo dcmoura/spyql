@@ -529,6 +529,7 @@ def test_processors():
             ' "four"}\n'
         ),
     )
+    eq_test_nrows("SELECT * FROM json", [], data="")
 
     # CSV input and NULLs
     eq_test_nrows(
@@ -575,6 +576,7 @@ def test_processors():
         data=",2,3\n4,5.0,ola\n,,",
         options=["-Idelimiter=,", "-Iheader=False"],
     )
+    eq_test_nrows("SELECT * FROM csv", [], data="")
 
     # Text input and NULLs
     eq_test_nrows(
@@ -587,6 +589,7 @@ def test_processors():
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="\n4\noops",
     )
+    eq_test_nrows("SELECT * FROM text", [], data="")
 
     # SPy input and NULLs
     eq_test_nrows(
@@ -624,6 +627,7 @@ def test_processors():
             ]
         ),
     )
+    eq_test_nrows("SELECT * FROM spy", [], data="")
 
 
 def test_metadata():
