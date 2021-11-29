@@ -532,25 +532,47 @@ def test_processors():
 
     # CSV input and NULLs
     eq_test_nrows(
-        "SELECT int(a) as a FROM csv",
+        "SELECT a as a FROM csv",
         [{"a": 1}, {"a": 4}, {"a": 7}],
         data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
     )
     eq_test_nrows(
-        "SELECT int(a) as a FROM csv",
+        "SELECT a as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
-        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
     )
     eq_test_nrows(
-        "SELECT int(a) as a FROM csv",
+        "SELECT a as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
-        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
         options=["-Idelimiter=,"],
     )
     eq_test_nrows(
-        "SELECT int(col1) as a FROM csv",
+        "SELECT int(a) as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
-        data=",2,3\n4,5,6\noops,8,9",
+        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        options=["-Idelimiter=,", "-Iinfer_dtypes=False"],
+    )
+    eq_test_nrows(
+        "SELECT a as a FROM csv",
+        [{"a": ""}, {"a": "4"}, {"a": ""}],
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
+        options=["-Idelimiter=,", "-Iinfer_dtypes=False"],
+    )
+    eq_test_nrows(
+        "SELECT col1 as a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data=",2,3\n4,5,6\n,8,9",
+        options=["-Idelimiter=,", "-Iheader=False"],
+    )
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b, col3 as c FROM csv",  # type inference test
+        [
+            {"a": NULL, "b": 2.0, "c": "3"},
+            {"a": 4, "b": 5.0, "c": "ola"},
+            {"a": NULL, "b": NULL, "c": ""},
+        ],
+        data=",2,3\n4,5.0,ola\n,,",
         options=["-Idelimiter=,", "-Iheader=False"],
     )
 
