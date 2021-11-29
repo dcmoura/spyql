@@ -27,9 +27,13 @@ def txt_output(out, has_header=False):
     return out.splitlines()
 
 
-def list_of_struct2pretty(vals):
-    if not vals:
+def list_of_struct2pretty(rows):
+    if not rows:
         return []
+    vals = [  # NULLs should be replaced by Nones before calling tabulate
+        {key: (None if val is NULL else val) for (key, val) in row.items()}
+        for row in rows
+    ]
     return (tabulate(vals, headers="keys", tablefmt="simple") + "\n").splitlines()
 
 
@@ -818,5 +822,8 @@ def test_sql_output():
 
 
 def test_plot_output():
+    # just checking that it does not break...
     res = run_spyql("SELECT col1 as abc, col1*2 FROM range(20) TO plot")
-    assert res.exit_code == 0  # just checking that it does not break...
+    assert res.exit_code == 0
+    res = run_spyql("SELECT col1 FROM [1,2,NULL,3,None,4] TO plot")
+    assert res.exit_code == 0
