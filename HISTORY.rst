@@ -2,7 +2,7 @@
 History
 =======
 
-0.4.0 (2021-11-30)
+0.4.0 (2021-12-02)
 ------------------
 * Added data type inference when reading CSVs
 * Added meta layer to access column names and values
