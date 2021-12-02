@@ -27,9 +27,13 @@ def txt_output(out, has_header=False):
     return out.splitlines()
 
 
-def list_of_struct2pretty(vals):
-    if not vals:
+def list_of_struct2pretty(rows):
+    if not rows:
         return []
+    vals = [  # NULLs should be replaced by Nones before calling tabulate
+        {key: (None if val is NULL else val) for (key, val) in row.items()}
+        for row in rows
+    ]
     return (tabulate(vals, headers="keys", tablefmt="simple") + "\n").splitlines()
 
 
@@ -529,30 +533,54 @@ def test_processors():
             ' "four"}\n'
         ),
     )
+    eq_test_nrows("SELECT * FROM json", [], data="")
 
     # CSV input and NULLs
     eq_test_nrows(
-        "SELECT int(a) as a FROM csv",
+        "SELECT a as a FROM csv",
         [{"a": 1}, {"a": 4}, {"a": 7}],
         data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
     )
     eq_test_nrows(
-        "SELECT int(a) as a FROM csv",
+        "SELECT a as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
-        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
     )
     eq_test_nrows(
-        "SELECT int(a) as a FROM csv",
+        "SELECT a as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
-        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
         options=["-Idelimiter=,"],
     )
     eq_test_nrows(
-        "SELECT int(col1) as a FROM csv",
+        "SELECT int(a) as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
-        data=",2,3\n4,5,6\noops,8,9",
+        data="a,b,c\n,2,3\n4,5,6\noops,8,9",
+        options=["-Idelimiter=,", "-Iinfer_dtypes=False"],
+    )
+    eq_test_nrows(
+        "SELECT a as a FROM csv",
+        [{"a": ""}, {"a": "4"}, {"a": ""}],
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
+        options=["-Idelimiter=,", "-Iinfer_dtypes=False"],
+    )
+    eq_test_nrows(
+        "SELECT col1 as a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data=",2,3\n4,5,6\n,8,9",
         options=["-Idelimiter=,", "-Iheader=False"],
     )
+    eq_test_nrows(
+        "SELECT col1 as a, col2 as b, col3 as c FROM csv",  # type inference test
+        [
+            {"a": NULL, "b": 2.0, "c": "3"},
+            {"a": 4, "b": 5.0, "c": "ola"},
+            {"a": NULL, "b": NULL, "c": ""},
+        ],
+        data=",2,3\n4,5.0,ola\n,,",
+        options=["-Idelimiter=,", "-Iheader=False"],
+    )
+    eq_test_nrows("SELECT * FROM csv", [], data="")
 
     # Text input and NULLs
     eq_test_nrows(
@@ -565,6 +593,7 @@ def test_processors():
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="\n4\noops",
     )
+    eq_test_nrows("SELECT * FROM text", [], data="")
 
     # SPy input and NULLs
     eq_test_nrows(
@@ -599,6 +628,108 @@ def test_processors():
                     [4, 5, 6],
                     ["ok", 8, 9],
                 ]
+            ]
+        ),
+    )
+    eq_test_nrows("SELECT * FROM spy", [], data="")
+
+
+def test_metadata():
+    eq_test_nrows(
+        "SELECT cols, _values, _names, row FROM csv",
+        [
+            {
+                "cols": [NULL, 2, 3],
+                "_values": ["", "2", "3"],
+                "_names": ["a", "b", "c"],
+                "row": {"a": NULL, "b": 2, "c": 3},
+            },
+            {
+                "cols": [4, 5, 6],
+                "_values": ["4", "5", "6"],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 4, "b": 5, "c": 6},
+            },
+            {
+                "cols": [NULL, 8, 9],
+                "_values": ["", "8", "9"],
+                "_names": ["a", "b", "c"],
+                "row": {"a": NULL, "b": 8, "c": 9},
+            },
+        ],
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
+    )
+    eq_test_nrows(
+        "SELECT cols, _values, _names, row FROM csv",
+        [
+            {
+                "cols": [NULL, 2, 3],
+                "_values": ["", "2", "3"],
+                "_names": ["col1", "col2", "col3"],
+                "row": {"col1": NULL, "col2": 2, "col3": 3},
+            },
+            {
+                "cols": [4, 5, 6],
+                "_values": ["4", "5", "6"],
+                "_names": ["col1", "col2", "col3"],
+                "row": {"col1": 4, "col2": 5, "col3": 6},
+            },
+            {
+                "cols": [NULL, 8, 9],
+                "_values": ["", "8", "9"],
+                "_names": ["col1", "col2", "col3"],
+                "row": {"col1": NULL, "col2": 8, "col3": 9},
+            },
+        ],
+        data=",2,3\n4,5,6\n,8,9",
+        options=["-Idelimiter=,", "-Iheader=False"],
+    )
+    eq_test_1row(
+        "SELECT cols, _values, _names, row FROM json",
+        {
+            "cols": [{"a": 1}],
+            "_values": [{"a": 1}],
+            "_names": ["json"],
+            "row": {"json": {"a": 1}},
+        },
+        data='{"a": 1}\n',
+    )
+    eq_test_1row(
+        "SELECT cols, _values, _names, row FROM text",
+        {
+            "cols": ["hello"],
+            "_values": ["hello"],
+            "_names": ["col1"],
+            "row": {"col1": "hello"},
+        },
+        data="hello\n",
+    )
+    eq_test_nrows(
+        "SELECT cols, _values, _names, row FROM spy",
+        [
+            {
+                "cols": [1, NULL, 3],
+                "_values": [1, NULL, 3],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 1, "b": NULL, "c": 3},
+            },
+            {
+                "cols": [4, 5, 6],
+                "_values": [4, 5, 6],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 4, "b": 5, "c": 6},
+            },
+            {
+                "cols": [7, 8, 9],
+                "_values": [7, 8, 9],
+                "_names": ["a", "b", "c"],
+                "row": {"a": 7, "b": 8, "c": 9},
+            },
+        ],
+        data="".join(
+            [
+                SpyWriter.pack(line)
+                for line in [["a", "b", "c"], [1, NULL, 3], [4, 5, 6], [7, 8, 9]]
             ]
         ),
     )
@@ -691,5 +822,8 @@ def test_sql_output():
 
 
 def test_plot_output():
+    # just checking that it does not break...
     res = run_spyql("SELECT col1 as abc, col1*2 FROM range(20) TO plot")
-    assert res.exit_code == 0  # just checking that it does not break...
+    assert res.exit_code == 0
+    res = run_spyql("SELECT col1 FROM [1,2,NULL,3,None,4] TO plot")
+    assert res.exit_code == 0

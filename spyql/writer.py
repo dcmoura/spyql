@@ -3,6 +3,7 @@ import json as jsonlib
 import pickle
 from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
+from math import nan
 
 from spyql.log import user_error
 from spyql.nulltype import NULL
@@ -101,8 +102,11 @@ class CollectWriter(Writer):
         super().__init__(outputfile)
         self.all_rows = []  # needs to store output in memory
 
+    def transformvalue(self, value):
+        return None if value is NULL else value
+
     def writerow(self, row):
-        self.all_rows.append(row)  # accumulates
+        self.all_rows.append([self.transformvalue(val) for val in row])  # accumulates
 
     def writerows(self, rows):
         raise NotImplementedError
@@ -136,6 +140,9 @@ class PlotWriter(CollectWriter):
         super().__init__(outputfile)
         self.header_on = header
         self.height = height
+
+    def transformvalue(self, value):
+        return nan if value is NULL or value is None else value
 
     def writerows(self, rows):
         colors = [

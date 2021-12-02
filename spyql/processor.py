@@ -7,6 +7,7 @@ import re
 import os
 from itertools import islice, chain
 from io import StringIO
+import copy
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
@@ -76,10 +77,12 @@ class Processor:
         self.prs = prs  # parsed query
         self.strings = strings  # quoted strings
         self.input_col_names = []  # column names of the input data
-        self.translations = (
+        self.translations = copy.deepcopy(
             spyql.nulltype.NULL_SAFE_FUNCS
         )  # map for alias, functions to be renamed...
         self.has_header = False
+        self.casts = dict()
+        self.col_values_exprs = []
 
     def reading_data(self):
         """
@@ -99,21 +102,32 @@ class Processor:
         """
         self.n_input_cols = len(row) if row else 0
 
+        default_col_names = [
+            self.default_col_name(_i) for _i in range(self.n_input_cols)
+        ]
+        self.col_values_exprs = [
+            f"{self.casts[_i]}_(_values[{_i}])"
+            if _i in self.casts
+            else f"_values[{_i}]"
+            for _i in range(self.n_input_cols)
+        ]
         # dictionary to translate col names to accesses to `_values`
-        self.translations.update(
-            {
-                self.default_col_name(_i): f"_values[{_i}]"
-                for _i in range(self.n_input_cols)
-            }
-        )
+        self.translations.update(dict(zip(default_col_names, self.col_values_exprs)))
         if self.input_col_names:
             # TODO check if len(input_col_names) == self.n_input_cols
             self.translations.update(
-                {
-                    self.input_col_names[_i]: f"_values[{_i}]"
-                    for _i in range(self.n_input_cols)
-                }
+                dict(zip(self.input_col_names, self.col_values_exprs))
             )
+
+        # metadata: list of column names
+        self.vars["_names"] = (
+            self.input_col_names if self.input_col_names else default_col_names
+        )
+        # list of [col1,col2,...]
+        cols_expr = "[" + ",".join(self.col_values_exprs) + "]"
+        self.translations["cols"] = cols_expr
+        # dict of {col1: value1, ...}
+        self.translations["row"] = f"NullSafeDict(dict(zip(_names, {cols_expr})))"
 
     def make_out_cols_names(self, out_cols_names):
         """
@@ -154,7 +168,7 @@ class Processor:
         `_values` and put (quoted) strings back
         """
         if expr == "*":
-            return [f"_values[{idx}]" for idx in range(self.n_input_cols)]
+            return self.col_values_exprs
 
         if isinstance(expr, int):
             # special case: expression is out col number (1-based)
@@ -430,7 +444,7 @@ class JSONProcessor(Processor):
         super().__init__(prs, strings)
         jsonlib.loads('{"a": 1}', **options)  # test options
         self.options = options
-        self.translations.update({"json": "_values[0]"})  # first column alias as json
+        self.input_col_names = ["json"]
 
     # 1 row = 1 json
     def get_input_iterator(self):
@@ -452,16 +466,49 @@ class JSONProcessor(Processor):
 
 # CSV
 class CSVProcessor(Processor):
-    def __init__(self, prs, strings, sample_size=10, header=None, **options):
+    def __init__(
+        self, prs, strings, sample_size=10, header=None, infer_dtypes=True, **options
+    ):
         super().__init__(prs, strings)
         self.sample_size = sample_size
         self.has_header = header
+        self.infer_dtypes = infer_dtypes
         self.options = options
         csv.reader(StringIO("test"), **self.options)  # test options
 
+    def _test_dtype(self, v):
+        v = v.strip()
+        if not v:
+            return (-100, None)  # empty string: do not cast
+        try:
+            int(v)
+            return (10, "int")
+        except ValueError:
+            try:
+                float(v)
+                return (20, "float")
+            except ValueError:
+                try:
+                    complex(v)
+                    return (30, "complex")
+                except ValueError:
+                    return (100, None)  # not a basic type: do not cast
+
+    def _infer_dtypes(self, reader):
+        if self.has_header:
+            next(reader, None)  # skip header
+        dtypes_rows = [[self._test_dtype(col) for col in line] for line in reader]
+        if dtypes_rows and dtypes_rows[0]:
+            dtypes = [
+                max([row[c] for row in dtypes_rows]) for c in range(len(dtypes_rows[0]))
+            ]
+            for c in range(len(dtypes)):
+                cast = dtypes[c][1]
+                if cast:
+                    self.casts[c] = cast
+
     def get_input_iterator(self):
         # Part 1 reads sample to detect dialect and if has header
-        # TODO infer data type
         # TODO force linedelimiter to be new line char set
 
         # saves sample to a string
@@ -487,6 +534,10 @@ class CSVProcessor(Processor):
             self.has_header = True  # default if dialect is not automatically detected
 
         sample.seek(0)  # rewinds the sample
+        if self.infer_dtypes:
+            self._infer_dtypes(csv.reader(sample, **self.options))
+            sample.seek(0)  # rewinds the sample again
+
         return chain(
             csv.reader(
                 sample, **self.options
