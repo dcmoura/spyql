@@ -240,18 +240,32 @@ class NullSafeDict(dict):
     __slots__ = ()  # no __dict__
 
     @staticmethod
-    def none2null(adic):
-        def none2null_el(el):
-            return [NULL if x is None else x for x in el] if type(el) is list else el
+    def __none2null(value):
+        if type(value) is list:
+            return [NULL if x is None else x for x in value]
+        return NULL if value is None else value
 
-        return {k: NULL if v is None else none2null_el(v) for k, v in adic.items()}
+    @staticmethod
+    def __none2null_dict(adic):
+        # TODO: this should work with pairs and not only dict
+        return {k: NullSafeDict.__none2null(v) for k, v in adic.items()}
 
-    def __init__(self, adic, **kwargs):
-        super().__init__(
-            # converts None -> NULL
-            NullSafeDict.none2null(adic),
-            **kwargs
-        )
+    def __init__(self, adic, dirty=True, **kwargs):
+        # dirty option keeps None values in dict instead of converting to NULL
+        self.update(adic if dirty else NullSafeDict.__none2null_dict(adic), **kwargs)
+
+    def __getitem__(self, key):
+        try:
+            # none2null is just needed when `dirty` is True (default)...
+            return NullSafeDict.__none2null(dict.__getitem__(self, key))
+        except KeyError:
+            return self.__missing__(key)
+
+    def values(self):
+        return tuple([NullSafeDict.__none2null(x) for x in super().values()])
+
+    def items(self):
+        return tuple(zip(self.keys(), self.values()))
 
     # returns NULL when key is not found
     def __missing__(self, key):
@@ -264,7 +278,7 @@ class NullSafeDict(dict):
 
         # TODO check if this is sufficienly efficient...
         # This only needs to guarantee that two equivalent dicts have the same hash
-        return hash(json.dumps(self, default=lambda x: str(x), sort_keys=True))
+        return hash(json.dumps(self, default=str, sort_keys=True))
 
 
 # returns default if val is NULL otherwise returns val
