@@ -265,7 +265,7 @@ class NullSafeDict(dict):
         return tuple([NullSafeDict.__none2null(x) for x in super().values()])
 
     def items(self):
-        return tuple(zip(self.keys(), self.values()))
+        return zip(self.keys(), self.values())
 
     # returns NULL when key is not found
     def __missing__(self, key):
