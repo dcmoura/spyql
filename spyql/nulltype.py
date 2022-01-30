@@ -247,7 +247,7 @@ class NullSafeDict(dict):
 
     @staticmethod
     def __none2null_dict(adic):
-        # TODO: this should work with pairs and not only dict
+        # TODO: this should work with a list of pairs and not only with a dict
         return {k: NullSafeDict.__none2null(v) for k, v in adic.items()}
 
     def __init__(self, adic, dirty=True, **kwargs):
@@ -262,9 +262,11 @@ class NullSafeDict(dict):
             return self.__missing__(key)
 
     def values(self):
+        # attention: does not return a view
         return tuple([NullSafeDict.__none2null(x) for x in super().values()])
 
     def items(self):
+        # attention: does not return a view
         return zip(self.keys(), self.values())
 
     # returns NULL when key is not found
