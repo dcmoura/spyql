@@ -2,6 +2,12 @@
 History
 =======
 
+0.4.1 (2022-01-31)
+------------------
+* Added profiling module
+* Improved efficiency of JSON reading
+
+
 0.4.0 (2021-12-02)
 ------------------
 * Added data type inference when reading CSVs
