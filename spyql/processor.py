@@ -127,7 +127,7 @@ class Processor:
         cols_expr = "[" + ",".join(self.col_values_exprs) + "]"
         self.translations["cols"] = cols_expr
         # dict of {col1: value1, ...}
-        self.translations["row"] = f"NullSafeDict(dict(zip(_names, {cols_expr})))"
+        self.translations["row"] = f"NullSafeDict(zip(_names, {cols_expr}))"
 
     def make_out_cols_names(self, out_cols_names):
         """
@@ -452,16 +452,11 @@ class JSONProcessor(Processor):
 
         # this might not be the most efficient way of converting None -> NULL, look at:
         # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
-        return (
-            [
-                jsonlib.loads(
-                    line,
-                    object_hook=lambda x: spyql.nulltype.NullSafeDict(x),
-                    **self.options,
-                )
-            ]
-            for line in sys.stdin
+        decoder = jsonlib.JSONDecoder(
+            object_pairs_hook=spyql.nulltype.NullSafeDict,
+            **self.options,
         )
+        return ([decoder.decode(line)] for line in sys.stdin)
 
 
 # CSV

@@ -16,7 +16,7 @@ from functools import reduce
 # --------  AUX FUNCTIONS  --------
 def json_output(out):
     return [
-        json.loads(line, object_hook=lambda x: NullSafeDict(x))
+        json.loads(line, object_hook=lambda x: NullSafeDict(x, dirty=False))
         for line in out.splitlines()
     ]
 
