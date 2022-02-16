@@ -52,7 +52,7 @@ def init_vars(user_query_vars = {}):
 
 class Processor:
     @staticmethod
-    def make_processor(prs, strings, input_options = None):
+    def make_processor(prs, strings, input_options = {}):
         """
         Factory for making a file processor based on the parsed query
         """
