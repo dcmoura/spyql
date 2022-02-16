@@ -4,40 +4,68 @@ import pickle
 from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
 from math import nan
+import sys
+import io
 
-from spyql.log import user_error
-from spyql.nulltype import NULL
+from spyql.log import user_debug, user_error, user_error
+from spyql.nulltype import NULL, NullSafeDict
+from spyql.query_result import QueryResult
+from spyql.utils import is_row_collapsable
 
 
 class Writer:
     @staticmethod
-    def make_writer(writer_name, outputfile, options):
+    def output_writers():
+        return {
+            "JSON": SimpleJSONWriter,
+            "CSV": CSVWriter,
+            "MEMORY": MemoryWriter,
+            "SPY": SpyWriter,
+            "PRETTY": PrettyWriter,
+            "SQL": SQLWriter,
+            "PLOT": PlotWriter,
+        }
+
+    @staticmethod
+    def make_writer(to_clause, output_options={}):
+        """
+        Factory for making an output writer based on the parsed query
+        """
         try:
-            if not writer_name:
-                return CSVWriter(outputfile, **options)
-            writer_name = writer_name.upper()
-            if writer_name == "CSV":
-                return CSVWriter(outputfile, **options)
-            if writer_name == "JSON":
-                return SimpleJSONWriter(outputfile, **options)
-            if writer_name == "PRETTY":
-                return PrettyWriter(outputfile, **options)
-            if writer_name == "SPY":
-                return SpyWriter(outputfile, **options)
-            if writer_name == "SQL":
-                return SQLWriter(outputfile, **options)
-            if writer_name == "PLOT":
-                return PlotWriter(outputfile, **options)
+            writer_name = to_clause
+            if not to_clause:  # not TO clause, defaults to CSV
+                writer_name = "CSV"
+                return CSVWriter(**output_options)
+            elif isinstance(to_clause, dict):  # there's an output data writer
+                writer_name = to_clause["name"]
+                writer = Writer.output_writers()[writer_name.upper()]
+                output_options.update(to_clause["kwargs"])
+                return writer(*to_clause["args"], **output_options)
+            else:
+                user_error(
+                    f"Unknown writer '{writer_name}'",
+                    SyntaxError("Error parsing TO statement"),
+                    writer_name,
+                )
         except TypeError as e:
             user_error(f"Could not create '{writer_name}' writer", e)
-        user_error(
-            f"Unknown writer '{writer_name}'",
-            SyntaxError("Error parsing TO statement"),
-            writer_name,
-        )
 
-    def __init__(self, outputfile):
-        self.outputfile = outputfile
+    def __init__(self, path=None, unbuffered=False):
+        user_debug(f"Loading writer {self.__class__.__name__}")
+        self.header = []
+        self.path = path
+        try:
+            self.outputfile = open(path, "w") if path else sys.stdout
+            if unbuffered:
+                self.outputfile = io.TextIOWrapper(
+                    open(self.outputfile.fileno(), "wb", 0), write_through=True
+                )
+        except Exception as e:
+            user_error(f"Could not open output file {path}", e)
+
+    def close(self):
+        if self.path:
+            self.outputfile.close()
 
     def writeheader(self, header):
         self.header = header
@@ -52,12 +80,16 @@ class Writer:
     def flush(self):
         pass
 
+    def result(self) -> QueryResult:
+        """Gets query result, in case of writing to memory"""
+        return None
+
 
 class CSVWriter(Writer):
-    def __init__(self, outputfile, header=True, **options):
-        super().__init__(outputfile)
+    def __init__(self, path=None, unbuffered=False, header=True, **options):
+        super().__init__(path, unbuffered)
         self.header_on = header
-        self.csv = csv.writer(outputfile, **options)
+        self.csv = csv.writer(self.outputfile, **options)
 
     def writeheader(self, header):
         if self.header_on:
@@ -71,8 +103,8 @@ class CSVWriter(Writer):
 
 
 class SimpleJSONWriter(Writer):
-    def __init__(self, outputfile, **options):
-        super().__init__(outputfile)
+    def __init__(self, path=None, unbuffered=False, **options):
+        super().__init__(path, unbuffered)
         jsonlib.dumps({"a": 1}, **options)  # test options
         self.options = options
 
@@ -80,12 +112,11 @@ class SimpleJSONWriter(Writer):
         self.outputfile.write(self.makerow(row) + "\n")
 
     def makerow(self, row):
-        single_dict = (
-            self.header in [["col1"], ["json"]]
-            and len(row) == 1
-            and isinstance(row[0], dict)
+        obj = (
+            row[0]
+            if is_row_collapsable(row, self.header)
+            else dict(zip(self.header, row))
         )
-        obj = row[0] if single_dict else dict(zip(self.header, row))
         return jsonlib.dumps(
             obj, default=lambda x: None if x is NULL else str(x), **self.options
         )
@@ -95,35 +126,52 @@ class CollectWriter(Writer):
     """
     Abstract writer that collects all records into a (in-memory) list and dumps all
     the output records at the end.
-    Child classes must implement the `writerows` method.
+    Child classes must implement the `dumprows` method.
     """
 
-    def __init__(self, outputfile):
-        super().__init__(outputfile)
+    def __init__(self, path=None, unbuffered=False):
+        super().__init__(path, unbuffered)
         self.all_rows = []  # needs to store output in memory
 
     def transformvalue(self, value):
         return None if value is NULL else value
 
-    def writerow(self, row):
-        self.all_rows.append([self.transformvalue(val) for val in row])  # accumulates
+    def transformrow(self, row):
+        return [self.transformvalue(val) for val in row]
 
-    def writerows(self, rows):
+    def writerow(self, row):
+        self.all_rows.append(self.transformrow(row))  # accumulates
+
+    def dumprows(self, rows):
         raise NotImplementedError
 
     def flush(self):
         if self.all_rows:
-            self.writerows(self.all_rows)  # dumps
+            self.dumprows(self.all_rows)  # dumps
+
+
+class MemoryWriter(CollectWriter):
+    def transformrow(self, row):
+        if not self.all_rows:
+            # makes decision to collapse based on the first row
+            self.__colapse = is_row_collapsable(row, self.header)
+        return row[0] if self.__colapse else NullSafeDict(zip(self.header, row))
+
+    def result(self):
+        return QueryResult(self.all_rows, self.header)
+
+    def dumprows(self, rows):
+        pass
 
 
 class PrettyWriter(CollectWriter):
-    def __init__(self, outputfile, header=True, **options):
-        super().__init__(outputfile)
+    def __init__(self, path=None, unbuffered=False, header=True, **options):
+        super().__init__(path, unbuffered)
         tabulate([[1, 2, 3]], **options)  # test options
         self.header_on = header
         self.options = options
 
-    def writerows(self, rows):
+    def dumprows(self, rows):
         # TODO handle default tablefmt
         self.outputfile.write(
             tabulate(
@@ -136,15 +184,15 @@ class PrettyWriter(CollectWriter):
 
 
 class PlotWriter(CollectWriter):
-    def __init__(self, outputfile, header=True, height=20):
-        super().__init__(outputfile)
+    def __init__(self, path=None, unbuffered=False, header=True, height=20):
+        super().__init__(path, unbuffered)
         self.header_on = header
         self.height = height
 
     def transformvalue(self, value):
         return nan if value is NULL or value is None else value
 
-    def writerows(self, rows):
+    def dumprows(self, rows):
         colors = [
             chart.cyan,
             chart.red,
@@ -174,8 +222,8 @@ class PlotWriter(CollectWriter):
 
 
 class SpyWriter(Writer):
-    def __init__(self, outputfile):
-        super().__init__(outputfile)
+    def __init__(self, path=None, unbuffered=False):
+        super().__init__(path, unbuffered)
 
     @staticmethod
     def pack(row):
@@ -186,12 +234,14 @@ class SpyWriter(Writer):
         self.outputfile.write(self.pack(header))
 
     def writerow(self, row):
-        self.outputfile.write(self.pack(row))
+        self.outputfile.write(SpyWriter.pack(row))
 
 
 class SQLWriter(Writer):
-    def __init__(self, outputfile, chunk_size=1000, table="table_name"):
-        super().__init__(outputfile)
+    def __init__(
+        self, path=None, unbuffered=False, chunk_size=1000, table="table_name"
+    ):
+        super().__init__(path, unbuffered)
         self.chunk_size = chunk_size
         self.table_name = table
         self.chunk = []
