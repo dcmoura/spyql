@@ -1,7 +1,5 @@
 from .cli import clean_query, parse
-from .processor import Processor, InteractiveProcessor
-from .quotes_handler import QuotesHandler
-
+from .processor import Processor
 
 class Q:
   def __init__(self, query: str) -> None:
@@ -25,14 +23,17 @@ class Q:
     """
     self.query = query
     self.prs, self.strings = parse(clean_query(query))
+    if self.prs["to"] != None:
+      raise Exception("Interactive mode does not support output")
     self.prs["to"] = "PYTHON" # force to yield/return
-    self.processor =  InteractiveProcessor(self.prs, self.strings)
+    self.processor =  Processor.make_processor(self.prs, self.strings)
 
   def __repr__(self) -> str:
     return f"Q(\"{self.query}\")"
 
   def __call__(self, **kwargs):
-    out = self.processor.go("./file", None, kwargs)
+    # kwargs can take in multiple data sources as input in the future
+    out = self.processor.go(None, None, kwargs)
     return out
 
 def q(query, **kwargs):

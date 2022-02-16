@@ -52,11 +52,14 @@ def init_vars(user_query_vars = {}):
 
 class Processor:
     @staticmethod
-    def make_processor(prs, strings, input_options):
+    def make_processor(prs, strings, input_options = None):
         """
         Factory for making a file processor based on the parsed query
         """
         try:
+            if prs["to"] == "PYTHON":
+                return InteractiveProcessor(prs, strings)
+
             processor_name = prs["from"]
             if not processor_name:
                 return Processor(prs, strings, **input_options)
