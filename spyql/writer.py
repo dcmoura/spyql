@@ -18,16 +18,19 @@ class Writer:
             writer_name = writer_name.upper()
             if writer_name == "CSV":
                 return CSVWriter(outputfile, **options)
-            if writer_name == "JSON":
+            elif writer_name == "JSON":
                 return SimpleJSONWriter(outputfile, **options)
-            if writer_name == "PRETTY":
+            elif writer_name == "PRETTY":
                 return PrettyWriter(outputfile, **options)
-            if writer_name == "SPY":
+            elif writer_name == "SPY":
                 return SpyWriter(outputfile, **options)
-            if writer_name == "SQL":
+            elif writer_name == "SQL":
                 return SQLWriter(outputfile, **options)
-            if writer_name == "PLOT":
+            elif writer_name == "PLOT":
                 return PlotWriter(outputfile, **options)
+            elif writer_name == "PYTHON":
+                # in this case the output should be reflected in as return
+                return InteractiveWriter()
         except TypeError as e:
             user_error(f"Could not create '{writer_name}' writer", e)
         user_error(
@@ -51,6 +54,24 @@ class Writer:
 
     def flush(self):
         pass
+
+
+class InteractiveWriter(Writer):
+    # this does not need to store anything, so no arguments are required
+    # and the writerow function only yields the output
+    def __init__(self):
+        super().__init__(None)
+        self.out = []
+
+    def writerow(self, row):
+        self.out.append(row)
+
+    def writerows(self, rows):
+        for r in rows:
+            self.writerow(r)
+
+    def get(self):
+        return self.out
 
 
 class CSVWriter(Writer):

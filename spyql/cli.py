@@ -330,10 +330,16 @@ def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
 
     prs, strings = parse(query)
 
+
+    print(prs)
+    print(strings)
+
     spyql.log.user_debug_dict("Parsed query", prs)
     spyql.log.user_debug_dict("Strings", strings.strings)
 
     processor = Processor.make_processor(prs, strings, input_opt)
+
+    print(processor.__dict__)
 
     processor.go(output_file, output_opt)
 

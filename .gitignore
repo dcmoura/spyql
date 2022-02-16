@@ -133,3 +133,4 @@ dmypy.json
 
 # misc
 bk/
+.DS_Store

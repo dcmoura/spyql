@@ -17,7 +17,7 @@ from spyql.utils import make_str_valid_varname, isiterable
 import spyql.agg
 
 
-def init_vars():
+def init_vars(user_query_vars = {}):
     """Initializes dict of variables for user queries"""
     vars = dict()
     # imports for user queries (TODO move to init.py when mature)
@@ -44,6 +44,9 @@ def init_vars():
         spyql.log.user_debug(f"Init file not found: {init_fname}")
     except Exception as e:
         spyql.log.user_warning(f"Could not load {init_fname}", e)
+    finally:
+        # user defined variables
+        vars["user_query_vars"] = user_query_vars
     return vars
 
 
@@ -73,9 +76,10 @@ class Processor:
         except TypeError as e:
             spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
 
-    def __init__(self, prs, strings):
+    def __init__(self, prs, strings, interactive = False):
         self.prs = prs  # parsed query
         self.strings = strings  # quoted strings
+        self.interactive = interactive # interactive mode
         self.input_col_names = []  # column names of the input data
         self.translations = copy.deepcopy(
             spyql.nulltype.NULL_SAFE_FUNCS
@@ -255,8 +259,12 @@ class Processor:
             return
         cmd = eval if mode == "eval" else exec
         try:
-            return cmd(clause_exprs, self.vars, self.vars)
+            if not self.interactive:
+                return cmd(clause_exprs, self.vars, self.vars)
+            else:
+                return cmd(clause_exprs, self.vars, {"data": self.vars["_values"]})
         except Exception as main_exception:
+            # this code is useful for debugging and not the actual processing
             prs_clause = self.prs[clause]
             if not self.is_clause_single(clause):
                 # breaks down clause into expressions and tries
@@ -283,16 +291,19 @@ class Processor:
             )
 
     # main
-    def go(self, output_file, output_options):
+    def go(self, output_file, output_options, user_query_vars = {}):
         output_handler = OutputHandler.make_handler(self.prs)
         writer = Writer.make_writer(self.prs["to"], output_file, output_options)
         output_handler.set_writer(writer)
-        nrows_in = self._go(output_handler)
+        nrows_in = self._go(output_handler, user_query_vars)
         output_handler.finish()
         spyql.log.user_info("#rows  in", nrows_in)
         spyql.log.user_info("#rows out", output_handler.rows_written)
 
-    def _go(self, output_handler):
+        if self.interactive:
+            return writer.out
+
+    def _go(self, output_handler, user_query_vars):
         select_expr = None
         where_expr = None
         explode_expr = None
@@ -307,7 +318,7 @@ class Processor:
         row_number = 0
         input_row_number = 0
 
-        self.vars = init_vars()
+        self.vars = init_vars(user_query_vars)
         spyql.agg._init_aggs()
 
         # import user modules
@@ -391,6 +402,17 @@ class Processor:
                         return input_row_number - (1 if self.has_header else 0)
 
         return input_row_number - (1 if self.has_header else 0)
+
+
+class InteractiveProcessor(Processor):
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings, interactive = True)
+
+    def get_input_iterator(self):
+        _from = self.prs["from"]
+        data = self.vars["user_query_vars"]
+        for x in data[_from]:
+            yield x
 
 
 class PythonExprProcessor(Processor):
