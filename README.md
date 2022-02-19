@@ -243,7 +243,7 @@ id, name, price
 ### Python iterator/list/comprehension to JSON
 
 ```sql
-SELECT 10 * cos(col1 * ((pi * 4) / 90)
+SELECT 10 * cos(col1 * ((pi * 4) / 90))
 FROM range(80)
 TO json
 ```

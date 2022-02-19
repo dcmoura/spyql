@@ -211,15 +211,60 @@ def test_json_write():
       data.append(json.loads(l))
 
   assert data == [{'name': 'C', 'age': 40}, {'name': 'D', 'age': 50}]
-  
 
-test_return_values()
-test_star_literals()
-test_complex()
+def test_csv_read_json_write():
+  target_json = join(gettempdir(), "spyql_test_write.jsonl")
+  query = Q(f'SELECT name, age FROM {csv_fpath} WHERE age > 30 TO {target_json}')
+  query()
 
-test_ux()
-test_json_read()
-test_csv_read()
+  with open(target_json, "r") as f:
+    data = []
+    for l in f.read().strip().splitlines():
+      data.append(json.loads(l))
 
-test_csv_write()
-test_json_write()
+  assert data == [{'name': 'C', 'age': 40}, {'name': 'D', 'age': 50}]
+
+
+def test_complex_interactive():
+  query = Q('IMPORT hashlib as hl SELECT hl.md5(col1.encode("utf-8")).hexdigest() FROM data')
+  out = query(data = ["a", "b", "c"])
+  assert out == [
+    ('0cc175b9c0f1b6a831c399e269772661',),
+    ('92eb5ffee6ae2fec3ad71c777531578f',),
+    ('4a8a08f09d37b73795649038408b5f33',)
+  ]
+
+def test_readme():
+  # all the tests given in the README
+  query = Q(
+    "SELECT data->invoice_num AS id, data->items->name AS name, data->items->price AS price FROM data EXPLODE data->items"
+  )
+  out = query(
+    data = [
+      {"invoice_num" : 1028, "items": [{"name": "tomatoes", "price": 1.5}, {"name": "bananas", "price": 2.0}]},
+      {"invoice_num" : 1029, "items": [{"name": "peaches", "price": 3.12}]}
+    ]
+  )
+  assert out == [(1028, 'tomatoes', 1.5), (1028, 'bananas', 2.0), (1029, 'peaches', 3.12)]
+
+  query = Q(
+    'SELECT 10 * cos(col1 * ((pi * 4) / 90)) FROM range(80)'
+  )
+  out = query()
+
+  query = Q(
+    'SELECT * FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]'
+  )
+  out = query()
+
+# test_return_values()
+# test_star_literals()
+# test_complex()
+# test_ux()
+# test_json_read()
+# test_csv_read()
+# test_csv_write()
+# test_json_write()
+# test_complex_interactive()
+# test_readme()
+# test_csv_read_json_write()
