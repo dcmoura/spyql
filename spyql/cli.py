@@ -309,6 +309,10 @@ def parse(query):
             except ValueError:
                 prs[clause] = None
 
+    # set default to False, though Q will explicitly set what is needed, we still add
+    # here for convenience
+    prs["interactive"] = False
+
     return (prs, strings)
 
 
@@ -325,7 +329,7 @@ def parse_options(ctx, param, options):
 ###############
 # run
 ###############
-def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
+def run(query, output_file=sys.stdout, input_options={}, output_options={}):
     query = clean_query(query)
 
     prs, strings = parse(query)
@@ -333,9 +337,9 @@ def run(query, output_file=sys.stdout, input_opt={}, output_opt={}):
     spyql.log.user_debug_dict("Parsed query", prs)
     spyql.log.user_debug_dict("Strings", strings.strings)
 
-    processor = Processor.make_processor(prs, strings, input_opt)
+    processor = Processor.make_processor(prs=prs, strings=strings, input_options=input_options)
 
-    processor.go(output_file, output_opt)
+    processor.go(output_file = output_file, output_options=output_options)
 
 
 @click.command()

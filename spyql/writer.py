@@ -5,7 +5,7 @@ from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
 from math import nan
 
-from spyql.log import user_error
+from spyql.log import user_error, user_info
 from spyql.nulltype import NULL
 
 
@@ -40,6 +40,7 @@ class Writer:
         )
 
     def __init__(self, outputfile):
+        user_info(f"Loading writer {self.__class__.__name__}")
         self.outputfile = outputfile
 
     def writeheader(self, header):
