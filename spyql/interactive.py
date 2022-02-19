@@ -38,6 +38,7 @@ class Q:
     """
     self.query = query
     self.parsed, self.strings = parse(clean_query(query))
+    self.output_path = None
 
     # from logic has to be improved to include the files, python datastructures
     _from = self.parsed["from"]
@@ -63,8 +64,18 @@ class Q:
       self.parsed["interactive"] = True
       interactive = True
       input_options = {"source": _from}
-    
-    self.parsed["to"] = "PYTHON" # force return to python
+
+    _to = self.parsed["to"]
+    if _to == None:
+      self.parsed["to"] = "PYTHON" # force return to python
+    elif _to.split(".")[-1].lower() in ["csv", "jsonl"]:
+      # SELECT * FROM data TO /tmp/spyql.jsonl
+      ext = _to.split(".")[-1].lower()
+      writer_type = {"csv": "CSV", "jsonl": "JSON"}.get(ext)
+      self.parsed["to"] = writer_type
+      self.output_path = _to
+    else:
+      raise SyntaxError(f"Unsupported output type: '{_to}'")
 
     self.processor = Processor.make_processor(
       prs = self.parsed,
@@ -78,5 +89,9 @@ class Q:
 
   def __call__(self, **kwargs):
     # kwargs can take in multiple data sources as input in the future
-    out = self.processor.go(None, None, kwargs)
-    return out
+    if self.output_path != None:
+      with open(self.output_path, "w") as f:
+        self.processor.go(f, {}, kwargs)
+    else:
+      out = self.processor.go(None, {}, kwargs)
+      return out

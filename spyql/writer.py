@@ -67,10 +67,6 @@ class InteractiveWriter(Writer):
     def writerow(self, row):
         self.out.append(row)
 
-    def writerows(self, rows):
-        for r in rows:
-            self.writerow(r)
-
 
 class CSVWriter(Writer):
     def __init__(self, outputfile, header=True, **options):

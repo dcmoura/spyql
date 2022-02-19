@@ -1,3 +1,10 @@
+################################################################################
+# Interactive Tests
+# =================
+# Here are the tests for SpyQL interactive mode:
+# 1. 
+################################################################################
+
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -7,6 +14,8 @@ from tempfile import gettempdir
 from spyql.interactive import Q
 from spyql import log
 from spyql.utils import folder, join
+
+# ported from main_test.py
 
 def eq_test_nrows(query, expectation, **kwargs):
   log.user_info(f"----")
@@ -122,24 +131,38 @@ def test_complex():
       {"a": [2, 3, 4]},
     )
 
+# new tests
+
+raw_data = [
+  {"name": "A", "age": 20, "salary": 30.},
+  {"name": "B", "age": 30, "salary": 12.},
+  {"name": "C", "age": 40, "salary": 6.},
+  {"name": "D", "age": 50, "salary": 0.40},
+]
+json_fpath = join(gettempdir(), "spyql_test.jsonl")
+with open(json_fpath, "w") as f:
+  for d in raw_data:
+    f.write(json.dumps(d) + "\n")
+
+csv_fpath = join(gettempdir(), "spyql_test.csv")
+with open(csv_fpath, "w") as f:
+  f.write('''name, age, salary
+A, 20, 30.
+B, 30, 12.
+C, 40, 6.
+D, 50, 0.40''')
+
 
 def test_ux():
-  data = [
-    {"name": "A", "age": 20, "salary": 30.},
-    {"name": "B", "age": 30, "salary": 12.},
-    {"name": "C", "age": 40, "salary": 6.},
-    {"name": "D", "age": 50, "salary": 0.40},
-  ]
-
   _q = Q('SELECT data->name as first_name, data->age as user_age FROM data WHERE data->age > 30')
   log.user_info(f"Query: {_q}")
-  out = _q(data = data)
+  out = _q(data = raw_data)
   log.user_info(f"Output by Query: {out}")
   assert len(out) == 2 # [('C', 40), ('D', 50)]
 
   out = Q(
     'SELECT data->name as first_name, data->age as user_age FROM data WHERE data->age < 30'
-  )(data = data)
+  )(data = raw_data)
   log.user_info(f"Output functional: {out}")
   assert len(out) == 1 # [('A', 20)]
 
@@ -147,51 +170,47 @@ def test_ux():
   def get_mean_salary_math(data):
     salary = [d["salary"] for d in data if d["age"] >= 30]
     return sum(salary) / len(salary)
-  log.user_info(f"Mean salary by math: {get_mean_salary_math(data): .3f}")
+  log.user_info(f"Mean salary by math: {get_mean_salary_math(raw_data): .3f}")
 
   # using SpyQL
   out = Q(
     'SELECT sum_agg(data->salary) / len(data) as sum_salary FROM data WHERE data->age >= 30'
-  )(data = data)
+  )(data = raw_data)
   log.user_info(f"Mean salary by math: {out}")
 
 
-def test_json():
-  data = [
-    {"name": "A", "age": 20, "salary": 30.},
-    {"name": "B", "age": 30, "salary": 12.},
-    {"name": "C", "age": 40, "salary": 6.},
-    {"name": "D", "age": 50, "salary": 0.40},
-  ]
-  fpath = join(gettempdir(), "spyql_test.jsonl")
-  with open(fpath, "w") as f:
-    for d in data:
-      f.write(json.dumps(d) + "\n")
-
-  query = Q(
-    f'SELECT json->name as first_name, json->age as user_age FROM {fpath} WHERE json->age > 30'
-  )
+def test_json_read():
+  query = Q(f'SELECT json->name as first_name, json->age as user_age FROM {json_fpath} WHERE json->age > 30')
   out = query()
   assert out == [('C', 40), ('D', 50)]
 
 
-def test_csv():
-  data = '''
-name, age, salary
-A, 20, 30.
-B, 30, 12.
-C, 40, 6.
-D, 50, 0.40
-  '''.strip()
-  fpath = join(gettempdir(), "spyql_test.csv")
-  with open(fpath, "w") as f:
-    f.write(data)
-
-  query = Q(
-    f'SELECT name as first_name, age as user_age FROM {fpath} WHERE age > 30'
-  )
+def test_csv_read():
+  query = Q(f'SELECT name as first_name, age as user_age FROM {csv_fpath} WHERE age > 30')
   out = query()
   assert out == [('C', 40), ('D', 50)]
+
+def test_csv_write():
+  target_csv = join(gettempdir(), "spyql_test_write.csv")
+  query = Q(f'SELECT name, age FROM {csv_fpath} WHERE age > 30 TO {target_csv}')
+  query()
+
+  with open(target_csv, "r") as f:
+    out = f.read()
+
+  assert out.strip().replace("\n", " ") == 'name,age C,40 D,50'
+
+def test_json_write():
+  target_json = join(gettempdir(), "spyql_test_write.jsonl")
+  query = Q(f'SELECT name, age FROM {csv_fpath} WHERE age > 30 TO {target_json}')
+  query()
+
+  with open(target_json, "r") as f:
+    data = []
+    for l in f.read().strip().splitlines():
+      data.append(json.loads(l))
+
+  assert data == [{'name': 'C', 'age': 40}, {'name': 'D', 'age': 50}]
   
 
 test_return_values()
@@ -199,5 +218,8 @@ test_star_literals()
 test_complex()
 
 test_ux()
-test_json()
-test_csv()
+test_json_read()
+test_csv_read()
+
+test_csv_write()
+test_json_write()
