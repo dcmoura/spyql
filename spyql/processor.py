@@ -5,6 +5,7 @@ import sys
 import io
 import re
 import os
+from pprint import pprint
 from itertools import islice, chain
 from io import StringIO
 import copy
@@ -56,9 +57,11 @@ class Processor:
         """
         Factory for making a file processor based on the parsed query
         """
+
+        if prs.get("interactive", None):
+            return InteractiveProcessor(prs, strings, **input_options)
+
         try:
-            if prs["to"] == "PYTHON":
-                return InteractiveProcessor(prs, strings)
 
             processor_name = prs["from"]
             if not processor_name:
@@ -68,11 +71,11 @@ class Processor:
 
             if processor_name == "JSON":
                 return JSONProcessor(prs, strings, **input_options)
-            if processor_name == "CSV":
+            elif processor_name == "CSV":
                 return CSVProcessor(prs, strings, **input_options)
-            if processor_name == "TEXT":  # single col
+            elif processor_name == "TEXT":  # single col
                 return TextProcessor(prs, strings, **input_options)
-            if processor_name == "SPY":
+            elif processor_name == "SPY":
                 return SpyProcessor(prs, strings, **input_options)
 
             return PythonExprProcessor(prs, strings, **input_options)
@@ -80,7 +83,9 @@ class Processor:
             spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
 
     def __init__(self, prs, strings, interactive = False):
+        spyql.log.user_info(f"Loading {self.__class__.__name__}")
         self.prs = prs  # parsed query
+        spyql.log.user_info(self.prs)
         self.strings = strings  # quoted strings
         self.interactive = interactive # interactive mode
         self.input_col_names = []  # column names of the input data
@@ -261,11 +266,16 @@ class Processor:
         if not clause_exprs:
             return
         cmd = eval if mode == "eval" else exec
+        # pprint(self.vars)
         try:
-            if not self.interactive:
-                return cmd(clause_exprs, self.vars, self.vars)
+            if self.interactive:
+                try:
+                    return cmd(clause_exprs, self.vars, {"data": self.vars["_values"]})
+                except:
+                    return cmd(clause_exprs, self.vars, self.vars)
             else:
-                return cmd(clause_exprs, self.vars, {"data": self.vars["_values"]})
+                return cmd(clause_exprs, self.vars, self.vars)
+    
         except Exception as main_exception:
             # this code is useful for debugging and not the actual processing
             prs_clause = self.prs[clause]
@@ -297,13 +307,15 @@ class Processor:
     def go(self, output_file, output_options, user_query_vars = {}):
         output_handler = OutputHandler.make_handler(self.prs)
         writer = Writer.make_writer(self.prs["to"], output_file, output_options)
+        spyql.log.user_info(f"Writer: {writer}")
         output_handler.set_writer(writer)
         nrows_in = self._go(output_handler, user_query_vars)
         output_handler.finish()
         spyql.log.user_info("#rows  in", nrows_in)
         spyql.log.user_info("#rows out", output_handler.rows_written)
 
-        if self.interactive:
+        # TODO: @yashbonde fix the condition
+        if hasattr(writer, "out"):
             return writer.out
 
     def _go(self, output_handler, user_query_vars):
@@ -408,14 +420,28 @@ class Processor:
 
 
 class InteractiveProcessor(Processor):
-    def __init__(self, prs, strings):
+    def __init__(self, prs, strings, source = None):
         super().__init__(prs, strings, interactive = True)
+        self.source = source
 
     def get_input_iterator(self):
-        _from = self.prs["from"]
+        # _from = self.prs["from"] # now is "PYTHON"
         data = self.vars["user_query_vars"]
-        for x in data[_from]:
-            yield x
+        if self.source != None:
+            if self.source in data:
+                spyql.log.user_info(f"Trying to read from python object")
+                return data[self.source]
+            else:
+                spyql.log.user_info(f"Trying to read as python expression")
+                e = self.eval_clause("from", self.compile_clause("from"))
+                if e:
+                    if not isiterable(e):
+                        e = [e]
+                    if not isiterable(e[0]):
+                        e = [[el] for el in e]
+                return e
+        else:
+            return self.prs["select"]
 
 
 class PythonExprProcessor(Processor):
