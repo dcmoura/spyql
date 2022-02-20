@@ -7,6 +7,7 @@ from tempfile import gettempdir
 from spyql.interactive import Q
 from spyql import log
 from spyql.utils import join_paths
+from spyql.nulltype import NULL, NullSafeDict
 
 # ported from main_test.py
 
@@ -124,6 +125,342 @@ def test_complex():
       {"a": [2, 3, 4]},
     )
 
+def test_orderby():
+  # order by (1 col)
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,3] ORDER BY 1", [{"col1": -2}, {"col1": 1}, {"col1": 3}]
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,3] ORDER BY 1 DESC",
+    [{"col1": 3}, {"col1": 1}, {"col1": -2}],
+  )
+  eq_test_nrows(
+    "SELECT abs(col1) as col1 FROM [1,-2,3] ORDER BY 1",
+    [{"col1": 1}, {"col1": 2}, {"col1": 3}],
+  )
+  eq_test_nrows(
+    "SELECT abs(col1) as col1 FROM [1,-2,3] ORDER BY 1 DESC",
+    [{"col1": 3}, {"col1": 2}, {"col1": 1}],
+  )
+  eq_test_nrows(
+    "SELECT col1 FROM [1,-2,3] ORDER BY col1",
+    [{"col1": -2}, {"col1": 1}, {"col1": 3}],
+  )
+  eq_test_nrows(
+    "SELECT col1 FROM [1,-2,3] ORDER BY abs(col1)",
+    [{"col1": 1}, {"col1": -2}, {"col1": 3}],
+  )
+  eq_test_nrows(
+    "SELECT col1 FROM [1,-2,3] ORDER BY abs(col1) DESC",
+    [{"col1": 3}, {"col1": -2}, {"col1": 1}],
+  )
+
+  # order by (1 col, NULL)
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1",
+    [{"col1": -2}, {"col1": 1}, {"col1": 3}, {"col1": NULL}],
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 NULLS LAST",
+    [{"col1": -2}, {"col1": 1}, {"col1": 3}, {"col1": NULL}],
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 NULLS FIRST",
+    [{"col1": NULL}, {"col1": -2}, {"col1": 1}, {"col1": 3}],
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 DESC",
+    [{"col1": NULL}, {"col1": 3}, {"col1": 1}, {"col1": -2}],
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 DESC NULLS FIRST",
+    [{"col1": NULL}, {"col1": 3}, {"col1": 1}, {"col1": -2}],
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 DESC NULLS LAST",
+    [{"col1": 3}, {"col1": 1}, {"col1": -2}, {"col1": NULL}],
+  )
+
+  # order by (multi-cols)
+  eq_test_nrows(
+    "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 1"
+    " ASC,  2 ASC",
+    [
+      {"a": 1, "b": 1},
+      {"a": 1, "b": 2},
+      {"a": 2, "b": 2},
+      {"a": 2, "b": 4},
+      {"a": 3, "b": 0},
+    ],
+  )
+  eq_test_nrows(
+    "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 1"
+    " DESC, 2 DESC",
+    list(
+      reversed(
+          [
+            {"a": 1, "b": 1},
+            {"a": 1, "b": 2},
+            {"a": 2, "b": 2},
+            {"a": 2, "b": 4},
+            {"a": 3, "b": 0},
+          ]
+      )
+    ),
+  )
+  eq_test_nrows(
+    "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 1"
+    " ASC,  2 DESC",
+    [
+      {"a": 1, "b": 2},
+      {"a": 1, "b": 1},
+      {"a": 2, "b": 4},
+      {"a": 2, "b": 2},
+      {"a": 3, "b": 0},
+    ],
+  )
+  eq_test_nrows(
+    "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER"
+    " BY 2,1",
+    [
+      {"a": 3, "b": 0},
+      {"a": 1, "b": 1},
+      {"a": 1, "b": 2},
+      {"a": 2, "b": 2},
+      {"a": 2, "b": 4},
+    ],
+  )
+  eq_test_nrows(
+    "SELECT col1 as a, col2 as b FROM list(zip([1,2,3,1,2],[2,2,0,1,4])) ORDER BY 2"
+    " DESC, 1 DESC",
+    list(
+      reversed(
+        [
+          {"a": 3, "b": 0},
+          {"a": 1, "b": 1},
+          {"a": 1, "b": 2},
+          {"a": 2, "b": 2},
+          {"a": 2, "b": 4},
+        ]
+      )
+    ),
+  )
+
+  # order by (with limit / offset / where)
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] WHERE col1 > 0 ORDER BY 1 DESC NULLS LAST",
+    [{"col1": 3}, {"col1": 1}],
+  )
+  eq_test_nrows(
+    "SELECT abs(col1) as col1 FROM [1,-2,NULL,3] ORDER BY 1 LIMIT 2",
+    [{"col1": 1}, {"col1": 2}],
+  )
+  eq_test_nrows(
+    "SELECT abs(col1) as col1 FROM [1,-2,NULL,3] ORDER BY 1 LIMIT 2 OFFSET 1",
+    [{"col1": 2}, {"col1": 3}],
+  )
+  eq_test_nrows(
+    "SELECT * FROM [1,-2,NULL,3] ORDER BY 1 LIMIT 0",
+    [],
+  )
+
+def test_agg():
+  import math
+  from functools import reduce
+
+  # aggregate functions (overall)
+  funcs = (
+    # sql func, python func, remove nulls on python func?
+    ("sum_agg(col1)", lambda x: sum(x) if x else NULL, True),
+    (
+      "prod_agg(col1)",
+      lambda x: reduce(lambda a, b: a * b, x) if x else NULL,
+      True,
+    ),
+    ("count_agg(col1)", len, True),
+    ("count_agg(*)", len, False),
+    ("avg_agg(col1)", lambda x: sum(x) / len(x) if x else NULL, True),
+    ("min_agg(col1)", lambda x: min(x) if x else NULL, True),
+    ("max_agg(col1)", lambda x: max(x) if x else NULL, True),
+    ("list_agg(col1)", lambda x: list(x), False),
+    ("list_agg(col1, False)", lambda x: list(x), True),
+    ('string_agg(col1,",")', lambda x: ",".join(map(str, x)), True),
+    ('string_agg(col1,",",True)', lambda x: ",".join(map(str, x)), False),
+    (
+      "sorted(list(set_agg(col1)), key=lambda x: (x is NULL, x))",
+      lambda y: sorted(list(set(y)), key=lambda x: (x is NULL, x)),
+      False,
+    ),
+    ("sorted(list(set_agg(col1, False)))", lambda y: sorted(list(set(y))), True),
+    ("first_agg(col1)", lambda x: x[0] if x else NULL, False),
+    ("first_agg(col1, False)", lambda x: x[0] if x else NULL, True),
+    ("last_agg(col1)", lambda x: x[-1] if x else NULL, False),
+    ("last_agg(col1, False)", lambda x: x[-1] if x else NULL, True),
+    ("lag_agg(col1)", lambda x: x[-2] if len(x) > 1 else NULL, False),
+    ("lag_agg(col1,2)", lambda x: x[-3] if len(x) > 2 else NULL, False),
+    ("count_distinct_agg(col1)", lambda x: len(set(x)), True),
+    ("count_distinct_agg(*)", lambda x: len(set(x)), False),
+    (
+      "any_agg(col1 == 1)",
+      lambda x: any(map(lambda y: y == 1, x)) if x else NULL,
+      True,
+    ),
+    (
+      "every_agg(col1 > 0)",
+      lambda x: all(map(lambda y: y > 0, x)) if x else NULL,
+      True,
+    ),
+  )
+
+  tst_lists = [
+    [NULL],
+    [NULL, NULL, NULL, NULL],
+    [NULL, 11, NULL],
+    [NULL, 11, 5, 10, NULL, 3, 3, 10, 4],
+    [12],
+    range(1, 21),
+    range(-10, 6),
+    [int(math.cos(x) * 100) / 100.0 for x in range(100)],
+  ]
+  for tst_list in tst_lists:
+    tst_list_clean = list(filter(lambda x: x is not NULL, tst_list))
+    for sql_func, tst_func, ignore_nulls in funcs:
+      col_name = sql_func[:5]
+      lst = tst_list_clean if ignore_nulls else tst_list
+      eq_test_1row(
+        f"SELECT {sql_func} as {col_name} FROM {tst_list}",
+        {col_name: tst_func(lst)},
+      )
+      eq_test_1row(
+        f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
+        {"a": tst_func(lst), "b": tst_func(lst) * 2},
+      )
+
+  # this would return a row with 0 in standard SQL, but in SpyQL returns no rows
+  eq_test_nrows("SELECT count(*) FROM []", [])
+
+  # partials
+  for tst_list in tst_lists:
+    eq_test_nrows(
+      "SELECT PARTIALS list_agg(col1) as a, count_agg(col1) as c1, count_agg(*)"
+      f" as c2, first_agg(col1) as f, lag_agg(col1) as l FROM {tst_list}",
+      [
+        {
+          "a": list(tst_list[:n]),
+          "c1": len(list(filter(lambda el: el is not NULL, tst_list[:n]))),
+          "c2": n,
+          "f": tst_list[0],
+          "l": NULL if n < 2 else tst_list[n - 2],
+        }
+        for n in range(1, len(tst_list) + 1)
+      ],
+    )
+
+def test_groupby():
+  eq_test_1row("SELECT 1 as a FROM range(1) GROUP BY col1", {"a": 1})
+  eq_test_1row(
+      "SELECT 1 as a, count_agg(*) as c FROM range(1) GROUP BY 1", {"a": 1, "c": 1}
+  )
+  eq_test_1row(
+      "SELECT 1 as a, count_agg(*) as c FROM range(10) GROUP BY 1", {"a": 1, "c": 10}
+  )
+  eq_test_1row(
+      "SELECT 1 as a, 2 as b, count_agg(*) as c FROM range(100) GROUP BY 1, 2",
+      {"a": 1, "b": 2, "c": 100},
+  )
+  eq_test_nrows(
+      "SELECT col1 % 2 as a, 2 as b, count_agg(*) as c, min_agg(col1) as mn,"
+      " max_agg(col1) as mx FROM range(101) GROUP BY 1, 1+1",
+      [
+          {"a": 0, "b": 2, "c": 51, "mn": 0, "mx": 100},
+          {"a": 1, "b": 2, "c": 50, "mn": 1, "mx": 99},
+      ],
+  )
+  eq_test_nrows(
+      "SELECT col1 % 3 as a, 2 as b, max_agg(col1) as mx FROM range(100) GROUP BY 1,"
+      " 2 ORDER BY 1 DESC",
+      [
+          {"a": 2, "b": 2, "mx": 98},
+          {"a": 1, "b": 2, "mx": 97},
+          {"a": 0, "b": 2, "mx": 99},
+      ],
+  )
+  eq_test_nrows(
+      "SELECT col1 % 3 as a, 2 as b, max_agg(col1) as mx FROM range(100) GROUP BY 1,"
+      " 2 ORDER BY max_agg(col1)",
+      [
+          {"a": 1, "b": 2, "mx": 97},
+          {"a": 2, "b": 2, "mx": 98},
+          {"a": 0, "b": 2, "mx": 99},
+      ],
+  )
+
+def test_distinct():
+  eq_test_1row("SELECT DISTINCT 1 as a FROM range(1)", {"a": 1})
+  eq_test_1row("SELECT DISTINCT 1 as a FROM range(10)", {"a": 1})
+  eq_test_1row("SELECT DISTINCT 1 as a, 2 as b FROM range(100)", {"a": 1, "b": 2})
+  eq_test_nrows(
+    "SELECT DISTINCT col1 % 2 as a, 2 as b FROM range(100)",
+    [{"a": 0, "b": 2}, {"a": 1, "b": 2}],
+  )
+  eq_test_nrows(
+    "SELECT DISTINCT col1 % 3 as a, 2 as b FROM range(100) ORDER BY 1 DESC",
+    [{"a": 2, "b": 2}, {"a": 1, "b": 2}, {"a": 0, "b": 2}],
+  )
+  eq_test_nrows(
+    "SELECT DISTINCT -(col1%3) as a, -(col1%2) as b FROM range(90) ORDER BY 1,2",
+    [
+      {"a": -2, "b": -1},
+      {"a": -2, "b": 0},
+      {"a": -1, "b": -1},
+      {"a": -1, "b": 0},
+      {"a": 0, "b": -1},
+      {"a": 0, "b": 0},
+    ],
+  )
+
+def test_distinct_exploding():
+  # Distinct jsons
+  target = join_paths(gettempdir(), 'sample.json')
+  res = Q(
+    f"SELECT DISTINCT data FROM data EXPLODE data->a TO {target}",
+  )(
+    data = [
+      {"a": [1, 2, 2], "b": "three",},
+      {"a": [], "b": "none",},
+      {"a": [4], "b": "four",},
+    ]
+  )
+  with open(target, "r") as f:
+    out = json.load(f)
+  assert out == [
+    {"a": 1, "b": "three"},
+    {"a": 2, "b": "three"},
+    {"a": 4, "b": "four"},
+  ]
+
+def test_null():
+  eq_test_1row("SELECT NULL", {"NULL": NULL})
+  eq_test_1row("SELECT NULL+1", {"NULL_1": NULL})
+  eq_test_1row("SELECT int('')", {"int": NULL})
+  eq_test_1row("SELECT coalesce(NULL,2)", {"coalesce_NULL_2": 2})
+  eq_test_1row("SELECT coalesce(3,2)", {"coalesce_3_2": 3})
+  eq_test_1row("SELECT nullif(1,1)", {"nullif_1_1": NULL})
+  eq_test_1row("SELECT nullif(3,2)", {"nullif_3_2": 3})
+
+def test_custom_syntax():
+    # easy access to dic fields
+    eq_test_1row(
+        "SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour,"
+        " col1->hello->world.upper() AS caps "
+        "FROM [[{'three': 3, 'twenty one': 21,"
+        " 'hello':{'world': 'hello world'}}]] "
+        "WHERE col1->three > 0 "
+        "ORDER BY col1->three",
+        {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"},
+    )
+
+
 # new tests
 
 raw_data = [
@@ -144,7 +481,6 @@ A, 20, 30.
 B, 30, 12.
 C, 40, 6.
 D, 50, 0.40''')
-
 
 def test_ux():
   _q = Q('SELECT data->name as first_name, data->age as user_age FROM data WHERE data->age > 30')
@@ -171,12 +507,10 @@ def test_ux():
   )(data = raw_data)
   log.user_debug(f"Mean salary by math: {out}")
 
-
 def test_json_read():
   query = Q(f'SELECT json->name as first_name, json->age as user_age FROM {json_fpath} WHERE json->age > 30')
   out = query()
   assert out ==  [['C', 40], ['D', 50]]
-
 
 def test_csv_read():
   query = Q(f'SELECT name as first_name, age as user_age FROM {csv_fpath} WHERE age > 30')
@@ -217,7 +551,6 @@ def test_csv_read_json_write():
 
   assert data == [{'name': 'C', 'age': 40}, {'name': 'D', 'age': 50}]
 
-
 def test_complex_interactive():
   query = Q('IMPORT hashlib as hl SELECT hl.md5(col1.encode("utf-8")).hexdigest() FROM data')
   out = query(data = ["a", "b", "c"])
@@ -250,14 +583,26 @@ def test_readme():
   )
   out = query()
 
-# test_return_values()
-# test_star_literals()
-# test_complex()
-# test_ux()
-# test_json_read()
-# test_csv_read()
-# test_csv_write()
-# test_json_write()
-# test_complex_interactive()
-# test_readme()
-# test_csv_read_json_write()
+# from main_test.py
+test_return_values()
+test_star_literals()
+test_orderby()
+test_groupby()
+test_distinct()
+test_agg()
+test_null()
+test_custom_syntax()
+
+# FAILING:
+# test_distinct_exploding()
+
+# interactive specific tests
+test_complex()
+test_ux()
+test_json_read()
+test_csv_read()
+test_csv_write()
+test_json_write()
+test_complex_interactive()
+test_readme()
+test_csv_read_json_write()

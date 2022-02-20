@@ -2,6 +2,7 @@ import os
 
 from .cli import clean_query, parse, file_ext2type
 from .processor import Processor
+from .writer import Writer
 from .log import *
 
 class Q:
@@ -66,21 +67,26 @@ class Q:
     _to = self.parsed["to"]
     if _to == None:
       self.parsed["to"] = "PYTHON" # force return to python
-    elif _to.split(".")[-1].lower() in ["csv", "jsonl"]:
-      # SELECT * FROM data TO /tmp/spyql.jsonl
-      ext = _to.split(".")[-1].lower()
-      writer_type = {"csv": "CSV", "jsonl": "JSON"}.get(ext)
-      self.parsed["to"] = writer_type
+    elif isinstance(_to, str):
+      if _to.upper() in Writer._valid_writers:
+        raise SyntaxError(f"Cannot export to a writer format in interactive mode: '{_to}'")
+      writer = Writer._ext2filetype.get(_to.split(".")[-1].lower(), None)
+      if writer == None:
+        raise SyntaxError(f"Invalid TO statement: '{_to}'")
+      self.parsed["to"] = writer
       self.output_path = _to
     else:
       raise SyntaxError(f"Unsupported output type: '{_to}'")
 
-    self.processor = Processor.make_processor(
-      prs = self.parsed,
-      strings = self.strings,
-      interactive = interactive,
-      input_options = input_options
-    )
+    try:
+      self.processor = Processor.make_processor(
+        prs = self.parsed,
+        strings = self.strings,
+        interactive = interactive,
+        input_options = input_options
+      )
+    except Exception as e:
+      user_error(f"Failed to parse query: '{query}'", e)
 
   def __repr__(self) -> str:
     return f"Q(\"{self.query}\")"

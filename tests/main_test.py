@@ -836,7 +836,7 @@ def test_plot_output():
 
 
 # test_basic()
-# test_orderby()
+test_orderby()
 # test_agg()
 # test_groupby()
 # test_distinct()

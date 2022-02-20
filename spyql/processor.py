@@ -89,13 +89,16 @@ def init_vars(user_query_vars = {}):
         spyql.log.user_debug(f"Init file not found: {init_fname}")
     except Exception as e:
         spyql.log.user_warning(f"Could not load {init_fname}", e)
-    finally:
-        # user defined variables
-        vars["user_query_vars"] = user_query_vars
+    
+    # user defined variables
+    vars.update(user_query_vars)
+    # vars["user_query_vars"] = user_query_vars
     return vars
 
 
 class Processor:
+    _valid_names = [None, "JSON", "CSV", "TEXT", "SPY"]
+
     @staticmethod
     def make_processor(prs, strings, interactive = False, input_options = {}):
         """
@@ -473,16 +476,15 @@ class PythonExprProcessor(Processor):
         super().__init__(prs, strings, interactive)
         self.source = source
 
-    # input is a Python expression
+    # input is a Python expression or a ref that is passed in the vars.
     def get_input_iterator(self):
-        # _from = self.prs["from"] # now is "PYTHON"
-        data = self.vars["user_query_vars"]
         if self.source != None:
-            if self.source in data:
-                spyql.log.user_info(f"Trying to read from python object")
-                return data[self.source]
+            # data = self.vars["user_query_vars"]
+            if self.source in self.vars:
+                spyql.log.user_debug(f"Trying to read as python object")
+                return self.vars[self.source]
             else:
-                spyql.log.user_info(f"Trying to read as python expression")
+                spyql.log.user_debug(f"Trying to read as python expression")
                 e = self.eval_clause("from", self.compile_clause("from"))
                 if e:
                     if not isiterable(e):

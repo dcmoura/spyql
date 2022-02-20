@@ -5,11 +5,23 @@ from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
 from math import nan
 
-from spyql.log import user_error, user_info
+from spyql.log import user_debug, user_error
 from spyql.nulltype import NULL
 
 
 class Writer:
+    _valid_writers = [None, "CSV", "JSON", "PRETTY", "SPY", "SQL", "PLOT", "PYTHON"]
+    _ext2filetype = {
+        "json": "JSON",
+        "jsonl": "JSON",
+        "csv": "CSV",
+        "txt": "TEXT",
+        "spy": "SPY",
+        "sql": "SQL",
+        "plot": "PLOT",
+        "py": "PYTHON",
+    }
+
     @staticmethod
     def make_writer(writer_name, outputfile, options):
         try:
@@ -40,7 +52,7 @@ class Writer:
         )
 
     def __init__(self, outputfile):
-        user_info(f"Loading writer {self.__class__.__name__}")
+        user_debug(f"Loading writer {self.__class__.__name__}")
         self.outputfile = outputfile
 
     def writeheader(self, header):
