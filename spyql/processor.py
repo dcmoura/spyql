@@ -5,7 +5,6 @@ import sys
 import io
 import re
 import os
-from pprint import pprint
 from itertools import islice, chain
 from io import StringIO
 import copy
@@ -90,9 +89,9 @@ class Processor:
             spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
 
     def __init__(self, prs, strings, interactive = False):
-        spyql.log.user_info(f"Loading {self.__class__.__name__}")
+        spyql.log.user_dbg(f"Loading {self.__class__.__name__}")
         self.prs = prs  # parsed query
-        spyql.log.user_info(self.prs)
+        spyql.log.user_dbg(self.prs)
         self.strings = strings  # quoted strings
         self.interactive = interactive # interactive mode
         self.input_col_names = []  # column names of the input data

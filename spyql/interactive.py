@@ -51,7 +51,7 @@ class Q:
       # SELECT * FROM /tmp/spyql.jsonl
 
       ext = _from.split(".")[-1].lower()
-      processor_from = {"jsonl": "JSON", "csv": "CSV"}.get(ext, None)
+      processor_from = {"json": "JSON", "jsonl": "JSON", "csv": "CSV"}.get(ext, None)
       if processor_from == None:
         user_warning(f"Unsupported file extension: '{ext}', loading as 'TEXT'")
         processor_from = "TEXT"
