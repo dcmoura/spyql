@@ -90,9 +90,12 @@ def init_vars(user_query_vars = {}):
     except Exception as e:
         spyql.log.user_warning(f"Could not load {init_fname}", e)
     
-    # user defined variables
+
+    # update the accessible vars with user defined vars, if overlap, warn the user
+    for x in set(vars.keys()) & set(user_query_vars.keys()):
+        spyql.log.user_warning(f"Overloading builtin name '{x}', somethings may not work!")
     vars.update(user_query_vars)
-    # vars["user_query_vars"] = user_query_vars
+
     return vars
 
 
@@ -313,18 +316,8 @@ class Processor:
         if not clause_exprs:
             return
         cmd = eval if mode == "eval" else exec
-        # pprint(self.vars)
         try:
-            if self.interactive:
-                try:
-                    # SELECT * FROM data
-                    return cmd(clause_exprs, self.vars, {"data": self.vars["_values"]})
-                except:
-                    # when there is a FROM given but it is a python object
-                    # SELECT * FROM [1, 2, 3, 4]
-                    return cmd(clause_exprs, self.vars, self.vars)
-            else:
-                return cmd(clause_exprs, self.vars, self.vars)
+            return cmd(clause_exprs, self.vars, self.vars)
 
         except Exception as main_exception:
             # this code is useful for debugging and not the actual processing
@@ -475,6 +468,7 @@ class PythonExprProcessor(Processor):
     def __init__(self, prs, strings, interactive, source = None):
         super().__init__(prs, strings, interactive)
         self.source = source
+        self.translations["data"] = "_values"
 
     # input is a Python expression or a ref that is passed in the vars.
     def get_input_iterator(self):
