@@ -103,7 +103,7 @@ class Processor:
     _valid_names = [None, "JSON", "CSV", "TEXT", "SPY"]
 
     @staticmethod
-    def make_processor(prs, strings, interactive = False, input_options = {}):
+    def make_processor(prs, strings, input_options = {}):
         """
         Factory for making a file processor based on the parsed query
         """
@@ -114,30 +114,29 @@ class Processor:
 
             processor_name = prs["from"]
             if not processor_name:
-                return Processor(prs=prs, strings=strings, interactive=interactive, **input_options)
+                return Processor(prs=prs, strings=strings, **input_options)
 
             processor_name = processor_name.upper()
 
             if processor_name == "JSON":
-                return JSONProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
+                return JSONProcessor(prs=prs, strings=strings, **input_options)
             elif processor_name == "CSV":
-                return CSVProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
+                return CSVProcessor(prs=prs, strings=strings, **input_options)
             elif processor_name == "TEXT":  # single col
-                return TextProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
+                return TextProcessor(prs=prs, strings=strings, **input_options)
             elif processor_name == "SPY":
-                return SpyProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
+                return SpyProcessor(prs=prs, strings=strings, **input_options)
 
             # By default now Interactive is same as PythonExprProcessor
-            return PythonExprProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
+            return PythonExprProcessor(prs=prs, strings=strings, **input_options)
         except TypeError as e:
             spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
 
-    def __init__(self, prs, strings, interactive = False):
+    def __init__(self, prs, strings):
         spyql.log.user_debug(f"Loading {self.__class__.__name__}")
         self.prs = prs  # parsed query
         spyql.log.user_debug(self.prs)
         self.strings = strings  # quoted strings
-        self.interactive = interactive # interactive mode
         self.input_col_names = []  # column names of the input data
         self.translations = copy.deepcopy(
             spyql.nulltype.NULL_SAFE_FUNCS
@@ -465,8 +464,8 @@ class Processor:
 
 
 class PythonExprProcessor(Processor):
-    def __init__(self, prs, strings, interactive, source = None):
-        super().__init__(prs, strings, interactive)
+    def __init__(self, prs, strings, source = None):
+        super().__init__(prs, strings)
         self.source = source
         self.translations["data"] = "_values"
 
@@ -491,13 +490,13 @@ class PythonExprProcessor(Processor):
 
 
 class TextProcessor(Processor):
-    def __init__(self, prs, strings, interactive, filepath = None):
-        super().__init__(prs, strings, interactive)
+    def __init__(self, prs, strings, filepath = None):
+        super().__init__(prs, strings)
         self.filepath = filepath
 
     # reads a text row as a row with 1 column
     def get_input_iterator(self):
-        if self.interactive:
+        if self.filepath != None:
             with open(self.filepath, "r") as f:
                 for l in f:
                     yield [l.rstrip("\n\r")]
@@ -506,8 +505,8 @@ class TextProcessor(Processor):
 
 
 class SpyProcessor(Processor):
-    def __init__(self, prs, strings, interactive):
-        super().__init__(prs, strings, interactive)
+    def __init__(self, prs, strings):
+        super().__init__(prs, strings)
         self.has_header = True
 
     def reading_data(self):
@@ -527,8 +526,8 @@ class SpyProcessor(Processor):
 
 
 class JSONProcessor(Processor):
-    def __init__(self, prs, strings, interactive, filepath = None, **options):
-        super().__init__(prs, strings, interactive)
+    def __init__(self, prs, strings, filepath = None, **options):
+        super().__init__(prs, strings)
         self.filepath = filepath
         jsonlib.loads('{"a": 1}', **options)  # test options
         self.options = options
@@ -556,9 +555,9 @@ class JSONProcessor(Processor):
 # CSV
 class CSVProcessor(Processor):
     def __init__(
-        self, prs, strings, interactive, sample_size=10, header=None, infer_dtypes=True, filepath = None, **options
+        self, prs, strings, sample_size=10, header=None, infer_dtypes=True, filepath = None, **options
     ):
-        super().__init__(prs, strings, interactive)
+        super().__init__(prs, strings)
         self.filepath = filepath
         self.sample_size = sample_size
         self.has_header = header
@@ -644,7 +643,7 @@ class CSVProcessor(Processor):
             # yield because when reading from file it will have to be closed
             yield x
 
-        if self.interactive:
+        if self.filepath != None:
             f.close()
 
     def reading_data(self):

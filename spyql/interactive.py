@@ -44,7 +44,6 @@ class Q:
     # from logic can handle list/tuple and files
     _from = self.parsed["from"]
     input_options = {}
-    interactive = False
     if _from == None:
       # SELECT 1
       pass
@@ -57,11 +56,9 @@ class Q:
         processor_from = "TEXT"
 
       self.parsed["from"] = processor_from
-      interactive = True
       input_options = {"filepath": _from}
     else:
       # SELECT * FROM data
-      interactive = True
       input_options = {"source": _from}
 
     _to = self.parsed["to"]
@@ -82,7 +79,6 @@ class Q:
       self.processor = Processor.make_processor(
         prs = self.parsed,
         strings = self.strings,
-        interactive = interactive,
         input_options = input_options
       )
     except Exception as e:
