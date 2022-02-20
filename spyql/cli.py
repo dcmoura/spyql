@@ -22,6 +22,12 @@ query_struct_keywords = [
     "to",
 ]
 
+file_ext2type = {
+    "json": "JSON",
+    "jsonl": "JSON",
+    "csv": "CSV"
+}
+
 
 def get_agg_funcs():
     import spyql.agg
@@ -330,9 +336,7 @@ def parse_options(ctx, param, options):
 # run
 ###############
 def run(query, output_file=sys.stdout, input_options={}, output_options={}):
-    query = clean_query(query)
-
-    prs, strings = parse(query)
+    
 
     spyql.log.user_debug_dict("Parsed query", prs)
     spyql.log.user_debug_dict("Strings", strings.strings)
@@ -415,6 +419,8 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
 
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
+
+    prs, strings = parse(clean_query(query))
 
     output_file = (
         io.TextIOWrapper(open(sys.stdout.fileno(), "wb", 0), write_through=True)

@@ -1,4 +1,5 @@
 import csv
+from ctypes import Union
 import json as jsonlib
 import pickle
 import sys
@@ -15,6 +16,50 @@ import spyql.nulltype
 import spyql.log
 from spyql.utils import make_str_valid_varname, isiterable
 import spyql.agg
+
+
+class ProcessedOutput:
+    __slots__ = [
+        "rows_in",
+        "rows_out",
+        "output",
+    ]
+
+    def __init__(self, rows_in: int, rows_out: int):
+        self.rows_in = rows_in
+        self.rows_out = rows_out
+
+    def get(self, k, v = None):
+        return getattr(self, k, v)
+
+    def set(self, k, v):
+        setattr(self, k, v)
+    
+    def get_dict(self):
+        return {k: getattr(self, k, None) for k in self.__slots__}
+
+    def to(self, frmt: str):
+        """
+        .. code-block::
+
+            dict    : dict like {column -> {index -> value}}
+            list    : dict like {column -> [values]}
+            series  : dict like {column -> Series(values)}
+            split   : dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}
+            tight   : dict like {‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values], ‘index_names’ -> [index.names], column_names -> [column.names]}
+            records : list like [{column -> value}, … , {column -> value}]
+            index   : dict like {index -> {column -> value}}
+
+        Args:
+            frmt (str): _description_
+        """
+        if frmt not in ["dict", "list", "series", "split", "tight", "records", "index"]:
+            raise ValueError(f"Invalid format: {frmt}")
+        raise NotImplementedError
+
+    def __repr__(self):
+        return str(self.get_dict())
+
 
 
 def init_vars(user_query_vars = {}):
@@ -59,14 +104,6 @@ class Processor:
 
         spyql.log.user_info(f"Input Options: {input_options}")
 
-        # Since I did not want to damage the existing flow using FROM, when the query
-        # is *really* interactive (as determined by Q), we set "interactive" in the
-        # parsed dict. This is different from interactive passed in the spec above,
-        # which tells the processors that you have to read data from filepath and not
-        # from stdin.
-        if prs.get("interactive", None):
-            return InteractiveProcessor(prs=prs, strings=strings, **input_options)
-
         try:
 
             processor_name = prs["from"]
@@ -84,14 +121,15 @@ class Processor:
             elif processor_name == "SPY":
                 return SpyProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
 
+            # By default now Interactive is same as PythonExprProcessor
             return PythonExprProcessor(prs=prs, strings=strings, interactive=interactive, **input_options)
         except TypeError as e:
             spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
 
     def __init__(self, prs, strings, interactive = False):
-        spyql.log.user_dbg(f"Loading {self.__class__.__name__}")
+        spyql.log.user_debug(f"Loading {self.__class__.__name__}")
         self.prs = prs  # parsed query
-        spyql.log.user_dbg(self.prs)
+        spyql.log.user_debug(self.prs)
         self.strings = strings  # quoted strings
         self.interactive = interactive # interactive mode
         self.input_col_names = []  # column names of the input data
@@ -276,6 +314,7 @@ class Processor:
         try:
             if self.interactive:
                 try:
+                    # SELECT * FROM data
                     return cmd(clause_exprs, self.vars, {"data": self.vars["_values"]})
                 except:
                     # when there is a FROM given but it is a python object
@@ -283,7 +322,7 @@ class Processor:
                     return cmd(clause_exprs, self.vars, self.vars)
             else:
                 return cmd(clause_exprs, self.vars, self.vars)
-    
+
         except Exception as main_exception:
             # this code is useful for debugging and not the actual processing
             prs_clause = self.prs[clause]
@@ -312,7 +351,7 @@ class Processor:
             )
 
     # main
-    def go(self, output_file, output_options, user_query_vars = {}):
+    def go(self, output_file, output_options,  user_query_vars = {}) -> ProcessedOutput:
         output_handler = OutputHandler.make_handler(self.prs)
         writer = Writer.make_writer(self.prs["to"], output_file, output_options)
         output_handler.set_writer(writer)
@@ -321,9 +360,12 @@ class Processor:
         spyql.log.user_info("#rows  in", nrows_in)
         spyql.log.user_info("#rows out", output_handler.rows_written)
 
-        # TODO: @yashbonde fix the condition
-        if hasattr(writer, "out"):
-            return writer.out
+        # if we decide to return a result object in the future, we might also include statistics
+        # like the #rows in/out, among other potential helpful stuff - @dcmoura
+        out = ProcessedOutput(nrows_in, output_handler.rows_written)
+        if hasattr(writer, "all_rows"):
+            out.set("output", writer.all_rows)
+        return out
 
     def _go(self, output_handler, user_query_vars):
         select_expr = None
@@ -426,11 +468,12 @@ class Processor:
         return input_row_number - (1 if self.has_header else 0)
 
 
-class InteractiveProcessor(Processor):
-    def __init__(self, prs, strings, source = None):
-        super().__init__(prs, strings, interactive = True)
+class PythonExprProcessor(Processor):
+    def __init__(self, prs, strings, interactive, source = None):
+        super().__init__(prs, strings, interactive)
         self.source = source
 
+    # input is a Python expression
     def get_input_iterator(self):
         # _from = self.prs["from"] # now is "PYTHON"
         data = self.vars["user_query_vars"]
@@ -451,21 +494,6 @@ class InteractiveProcessor(Processor):
             return self.prs["select"]
 
 
-class PythonExprProcessor(Processor):
-    def __init__(self, prs, strings, interactive):
-        super().__init__(prs, strings, interactive)
-
-    # input is a Python expression
-    def get_input_iterator(self):
-        e = self.eval_clause("from", self.compile_clause("from"))
-        if e:
-            if not isiterable(e):
-                e = [e]
-            if not isiterable(e[0]):
-                e = [[el] for el in e]
-        return e
-
-
 class TextProcessor(Processor):
     def __init__(self, prs, strings, interactive, filepath = None):
         super().__init__(prs, strings, interactive)
@@ -473,12 +501,10 @@ class TextProcessor(Processor):
 
     # reads a text row as a row with 1 column
     def get_input_iterator(self):
-        # to do: suport files
         if self.interactive:
             with open(self.filepath, "r") as f:
-                for line in f:
-                    # note yeilding to avoid reading in one go
-                    yield [line.rstrip("\n\r")]
+                for l in f:
+                    yield [l.rstrip("\n\r")]
         else:
             return ([line.rstrip("\n\r")] for line in sys.stdin)
 
@@ -522,7 +548,8 @@ class JSONProcessor(Processor):
             object_pairs_hook=spyql.nulltype.NullSafeDict,
             **self.options,
         )
-        if self.interactive:
+
+        if self.filepath != None:
             with open(self.filepath, "r") as f:
                 for l in f:
                     yield [decoder.decode(l)]
@@ -582,16 +609,17 @@ class CSVProcessor(Processor):
         # NOTE if dialect is given and type detection is off we should not need a sample
         sample = io.StringIO()
 
-        if self.interactive:
+        if self.filepath != None:
             spyql.log.user_info(f"Reading sample from file: {self.filepath}")
             f = open(self.filepath, "r")
         else:
+            spyql.log.user_info(f"Reading sample from STDIN")
             f = sys.stdin
 
         for line in list(islice(f, self.sample_size)):  # TODO: support files
             sample.write(line)
         sample_val = sample.getvalue()
-        
+
         if not sample_val:
             return []
         if not self.options:
@@ -617,7 +645,8 @@ class CSVProcessor(Processor):
             csv.reader(sample, **self.options),  # goes through sample again (for reading input data)
             csv.reader(f, **self.options),
         ):
-            yield x  # continues to the rest of the file
+            # yield because when reading from file it will have to be closed
+            yield x
 
         if self.interactive:
             f.close()

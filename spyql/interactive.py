@@ -1,6 +1,6 @@
 import os
 
-from .cli import clean_query, parse
+from .cli import clean_query, parse, file_ext2type
 from .processor import Processor
 from .log import *
 
@@ -40,7 +40,7 @@ class Q:
     self.parsed, self.strings = parse(clean_query(query))
     self.output_path = None
 
-    # from logic has to be improved to include the files, python datastructures
+    # from logic can handle list/tuple and files
     _from = self.parsed["from"]
     input_options = {}
     interactive = False
@@ -49,9 +49,8 @@ class Q:
       pass
     elif os.path.exists(_from):
       # SELECT * FROM /tmp/spyql.jsonl
-
       ext = _from.split(".")[-1].lower()
-      processor_from = {"json": "JSON", "jsonl": "JSON", "csv": "CSV"}.get(ext, None)
+      processor_from = file_ext2type.get(ext, None)
       if processor_from == None:
         user_warning(f"Unsupported file extension: '{ext}', loading as 'TEXT'")
         processor_from = "TEXT"
@@ -61,7 +60,6 @@ class Q:
       input_options = {"filepath": _from}
     else:
       # SELECT * FROM data
-      self.parsed["interactive"] = True
       interactive = True
       input_options = {"source": _from}
 
@@ -91,7 +89,15 @@ class Q:
     # kwargs can take in multiple data sources as input in the future
     if self.output_path != None:
       with open(self.output_path, "w") as f:
-        self.processor.go(f, {}, kwargs)
+        self.processor.go(
+          output_file = f,
+          output_options = {},
+          user_query_vars = kwargs
+        )
     else:
-      out = self.processor.go(None, {}, kwargs)
-      return out
+      out = self.processor.go(
+        output_file = None,
+        output_options = {},
+        user_query_vars = kwargs
+      )
+      return out.output

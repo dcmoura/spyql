@@ -1,28 +1,21 @@
-################################################################################
-# Interactive Tests
-# =================
-# Here are the tests for SpyQL interactive mode:
-# 1. 
-################################################################################
-
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 import json
 from tempfile import gettempdir
 
 from spyql.interactive import Q
 from spyql import log
-from spyql.utils import folder, join
+from spyql.utils import join_paths
 
 # ported from main_test.py
 
 def eq_test_nrows(query, expectation, **kwargs):
-  log.user_info(f"----")
+  log.user_debug(f"----")
   q = Q(query)
-  log.user_info(f"{q}")
+  log.user_debug(f"{q}")
   res = q(**kwargs)
-  log.user_info(f"{len(expectation)} vs {len(res)} => {res} ")
+  log.user_debug(f"{len(expectation)} vs {len(res)} => {res} ")
   assert len(res) == len(expectation)
 
 def eq_test_1row(query, expectation, **kwargs):
@@ -139,12 +132,12 @@ raw_data = [
   {"name": "C", "age": 40, "salary": 6.},
   {"name": "D", "age": 50, "salary": 0.40},
 ]
-json_fpath = join(gettempdir(), "spyql_test.jsonl")
+json_fpath = join_paths(gettempdir(), "spyql_test.jsonl")
 with open(json_fpath, "w") as f:
   for d in raw_data:
     f.write(json.dumps(d) + "\n")
 
-csv_fpath = join(gettempdir(), "spyql_test.csv")
+csv_fpath = join_paths(gettempdir(), "spyql_test.csv")
 with open(csv_fpath, "w") as f:
   f.write('''name, age, salary
 A, 20, 30.
@@ -155,43 +148,43 @@ D, 50, 0.40''')
 
 def test_ux():
   _q = Q('SELECT data->name as first_name, data->age as user_age FROM data WHERE data->age > 30')
-  log.user_info(f"Query: {_q}")
+  log.user_debug(f"Query: {_q}")
   out = _q(data = raw_data)
-  log.user_info(f"Output by Query: {out}")
+  log.user_debug(f"Output by Query: {out}")
   assert len(out) == 2 # [('C', 40), ('D', 50)]
 
   out = Q(
     'SELECT data->name as first_name, data->age as user_age FROM data WHERE data->age < 30'
   )(data = raw_data)
-  log.user_info(f"Output functional: {out}")
+  log.user_debug(f"Output functional: {out}")
   assert len(out) == 1 # [('A', 20)]
 
   # get mean of salaries of people whose age is greater than 30
   def get_mean_salary_math(data):
     salary = [d["salary"] for d in data if d["age"] >= 30]
     return sum(salary) / len(salary)
-  log.user_info(f"Mean salary by math: {get_mean_salary_math(raw_data): .3f}")
+  log.user_debug(f"Mean salary by math: {get_mean_salary_math(raw_data): .3f}")
 
   # using SpyQL
   out = Q(
     'SELECT sum_agg(data->salary) / len(data) as sum_salary FROM data WHERE data->age >= 30'
   )(data = raw_data)
-  log.user_info(f"Mean salary by math: {out}")
+  log.user_debug(f"Mean salary by math: {out}")
 
 
 def test_json_read():
   query = Q(f'SELECT json->name as first_name, json->age as user_age FROM {json_fpath} WHERE json->age > 30')
   out = query()
-  assert out == [('C', 40), ('D', 50)]
+  assert out ==  [['C', 40], ['D', 50]]
 
 
 def test_csv_read():
   query = Q(f'SELECT name as first_name, age as user_age FROM {csv_fpath} WHERE age > 30')
   out = query()
-  assert out == [('C', 40), ('D', 50)]
+  assert out == [['C', 40], ['D', 50]]
 
 def test_csv_write():
-  target_csv = join(gettempdir(), "spyql_test_write.csv")
+  target_csv = join_paths(gettempdir(), "spyql_test_write.csv")
   query = Q(f'SELECT name, age FROM {csv_fpath} WHERE age > 30 TO {target_csv}')
   query()
 
@@ -201,7 +194,7 @@ def test_csv_write():
   assert out.strip().replace("\n", " ") == 'name,age C,40 D,50'
 
 def test_json_write():
-  target_json = join(gettempdir(), "spyql_test_write.jsonl")
+  target_json = join_paths(gettempdir(), "spyql_test_write.jsonl")
   query = Q(f'SELECT name, age FROM {csv_fpath} WHERE age > 30 TO {target_json}')
   query()
 
@@ -213,7 +206,7 @@ def test_json_write():
   assert data == [{'name': 'C', 'age': 40}, {'name': 'D', 'age': 50}]
 
 def test_csv_read_json_write():
-  target_json = join(gettempdir(), "spyql_test_write.jsonl")
+  target_json = join_paths(gettempdir(), "spyql_test_write.jsonl")
   query = Q(f'SELECT name, age FROM {csv_fpath} WHERE age > 30 TO {target_json}')
   query()
 
@@ -229,9 +222,9 @@ def test_complex_interactive():
   query = Q('IMPORT hashlib as hl SELECT hl.md5(col1.encode("utf-8")).hexdigest() FROM data')
   out = query(data = ["a", "b", "c"])
   assert out == [
-    ('0cc175b9c0f1b6a831c399e269772661',),
-    ('92eb5ffee6ae2fec3ad71c777531578f',),
-    ('4a8a08f09d37b73795649038408b5f33',)
+    ['0cc175b9c0f1b6a831c399e269772661',],
+    ['92eb5ffee6ae2fec3ad71c777531578f',],
+    ['4a8a08f09d37b73795649038408b5f33',]
   ]
 
 def test_readme():
@@ -245,7 +238,7 @@ def test_readme():
       {"invoice_num" : 1029, "items": [{"name": "peaches", "price": 3.12}]}
     ]
   )
-  assert out == [(1028, 'tomatoes', 1.5), (1028, 'bananas', 2.0), (1029, 'peaches', 3.12)]
+  assert out == [[1028, 'tomatoes', 1.5], [1028, 'bananas', 2.0], [1029, 'peaches', 3.12]]
 
   query = Q(
     'SELECT 10 * cos(col1 * ((pi * 4) / 90)) FROM range(80)'

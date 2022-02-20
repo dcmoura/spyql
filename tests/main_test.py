@@ -65,7 +65,8 @@ def spy2py(lines):
 
 
 def run_spyql(query="", options=[], data=None, runner=CliRunner(), exception=True):
-    return runner.invoke(spyql.cli.main, options + [query], input=data)
+    res = runner.invoke(spyql.cli.main, options + [query], input=data)
+    return res
 
 
 def eq_test_nrows(query, expectation, data=None, options=[]):
@@ -76,17 +77,17 @@ def eq_test_nrows(query, expectation, data=None, options=[]):
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
-    # res = run_spyql(query + " TO csv", options, data, runner)
-    # assert txt_output(res.output, True) == list_of_struct2csv(expectation)
-    # assert res.exit_code == 0
+    res = run_spyql(query + " TO csv", options, data, runner)
+    assert txt_output(res.output, True) == list_of_struct2csv(expectation)
+    assert res.exit_code == 0
 
-    # res = run_spyql(query + " TO spy", options, data, runner)
-    # assert spy2py(txt_output(res.output, True)) == list_of_struct2py(expectation)
-    # assert res.exit_code == 0
+    res = run_spyql(query + " TO spy", options, data, runner)
+    assert spy2py(txt_output(res.output, True)) == list_of_struct2py(expectation)
+    assert res.exit_code == 0
 
-    # res = run_spyql(query + " TO pretty", options, data, runner)
-    # assert txt_output(res.output, True) == list_of_struct2pretty(expectation)
-    # assert res.exit_code == 0
+    res = run_spyql(query + " TO pretty", options, data, runner)
+    assert txt_output(res.output, True) == list_of_struct2pretty(expectation)
+    assert res.exit_code == 0
 
 
 def eq_test_1row(query, expectation, **kwargs):
@@ -197,7 +198,6 @@ def test_basic():
         {"a": [2, 3, 4]},
     )
 
-test_basic()
 
 def test_orderby():
     # order by (1 col)
@@ -833,3 +833,17 @@ def test_plot_output():
     assert res.exit_code == 0
     res = run_spyql("SELECT col1 FROM [1,2,NULL,3,None,4] TO plot")
     assert res.exit_code == 0
+
+
+# test_basic()
+# test_orderby()
+# test_agg()
+# test_groupby()
+# test_distinct()
+# test_null()
+# test_processors()
+# test_metadata()
+# test_custom_syntax()
+# test_errors()
+# test_sql_output()
+# test_plot_output()

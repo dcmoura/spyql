@@ -30,7 +30,7 @@ class Writer:
                 return PlotWriter(outputfile, **options)
             elif writer_name == "PYTHON":
                 # in this case the output should be reflected in as return
-                return InteractiveWriter()
+                return CollectWriter(outputfile)
         except TypeError as e:
             user_error(f"Could not create '{writer_name}' writer", e)
         user_error(
@@ -55,17 +55,6 @@ class Writer:
 
     def flush(self):
         pass
-
-
-class InteractiveWriter(Writer):
-    # this does not need to store anything, so no arguments are required
-    # and the writerow function only yields the output
-    def __init__(self):
-        super().__init__(None)
-        self.out = []
-
-    def writerow(self, row):
-        self.out.append(row)
 
 
 class CSVWriter(Writer):
@@ -122,13 +111,6 @@ class CollectWriter(Writer):
 
     def writerow(self, row):
         self.all_rows.append([self.transformvalue(val) for val in row])  # accumulates
-
-    def writerows(self, rows):
-        raise NotImplementedError
-
-    def flush(self):
-        if self.all_rows:
-            self.writerows(self.all_rows)  # dumps
 
 
 class PrettyWriter(CollectWriter):
