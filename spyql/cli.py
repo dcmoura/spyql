@@ -1,8 +1,10 @@
+from spyql.writer import Writer
 from spyql.processor import Processor
 from spyql.quotes_handler import QuotesHandler
 import spyql.utils
 import spyql.log
 import logging
+import os
 import re
 import click
 import sys
@@ -315,10 +317,6 @@ def parse(query):
             except ValueError:
                 prs[clause] = None
 
-    # set default to False, though Q will explicitly set what is needed, we still add
-    # here for convenience
-    prs["interactive"] = False
-
     return (prs, strings)
 
 
@@ -337,13 +335,61 @@ def parse_options(ctx, param, options):
 ###############
 def run(query, output_file=sys.stdout, input_options={}, output_options={}):
     
+    prs, strings = parse(clean_query(query))
 
     spyql.log.user_debug_dict("Parsed query", prs)
     spyql.log.user_debug_dict("Strings", strings.strings)
 
-    processor = Processor.make_processor(prs=prs, strings=strings, input_options=input_options)
+    # FROM logic:
+    #   if nothing then it might be just a SELECT method
+    #   if is a valid file then load it
+    #   else assume it is a python object to be loaded by user
+    _from = prs["from"]
+    if _from == None:
+      # SELECT 1
+      pass
+    elif isinstance(_from, str):
+        if _from.upper() in Processor._valid_names:
+            # as you are
+            pass
+        elif os.path.exists(_from):
+            # SELECT * FROM /tmp/spyql.jsonl
+            processor = Processor._ext2filetype.get(_from.split(".")[-1].lower(), None)
+            if processor == None:
+                raise SyntaxError(f"Invalid FROM statement: '{_from}'")
 
-    processor.go(output_file = output_file, output_options=output_options)
+            prs["from"] = processor
+            input_options = {"filepath": _from}
+        else:
+            raise SyntaxError(f"Invalid FROM statement: '{_from}'")
+    else:
+        raise SyntaxError(f"Invalid FROM statement: '{_from}'")
+
+    # TO logic:
+    #   if nothing is whatever already is
+    #   if is a string and is a valid output format then use it
+    #   if is a string and is a supported filepath then use it
+    _to = prs["to"]
+
+    if _to == None:
+        output_file = output_file # whatever it already is
+    elif isinstance(_to, str):
+        if _to.upper() in Writer._valid_writers:
+            # TO csv
+            output_file = output_file # whatever it already is
+        else:
+            # TO /tmp/spyql.jsonl
+            writer = Writer._ext2filetype.get(_to.split(".")[-1].lower(), None)
+            if writer == None:
+                raise SyntaxError(f"Invalid TO file: '{_to}'")
+            output_file = _to
+            prs["to"] = writer
+    else:
+        raise SyntaxError(f"Invalid TO file: '{_to}'")
+
+    processor = Processor.make_processor(prs=prs, strings=strings, input_options=input_options)
+    out = processor.go(output_file = output_file, output_options = output_options)
+    return out
 
 
 @click.command()
@@ -420,14 +466,14 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
     spyql.log.error_on_warning = warning_flag == "error"
 
-    prs, strings = parse(clean_query(query))
-
     output_file = (
         io.TextIOWrapper(open(sys.stdout.fileno(), "wb", 0), write_through=True)
         if unbuffered
         else sys.stdout
     )
-    run(query, output_file, input_opt, output_opt)
+    out = run(query, output_file, input_opt, output_opt)
+
+    spyql.log.user_info(f"Output Meta: {out}")
 
 
 if __name__ == "__main__":

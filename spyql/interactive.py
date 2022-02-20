@@ -6,7 +6,7 @@ from .writer import Writer
 from .log import *
 
 class Q:
-  def __init__(self, query: str) -> None:
+  def __init__(self, query: str, input_options: dict = {}, output_options: dict = {}) -> None:
     """
     Make spyql interactive.
 
@@ -40,66 +40,64 @@ class Q:
     self.query = query
     self.parsed, self.strings = parse(clean_query(query))
     self.output_path = None
+    self.output_options = output_options
 
-    # from logic can handle list/tuple and files
+    # FROM logic:
+    #   if nothing then it might be just a SELECT method
+    #   if such a path exists then load the correct writer
+    #   else assume it is a python object to be loaded by user
     _from = self.parsed["from"]
-    input_options = {}
     if _from == None:
       # SELECT 1
       pass
     elif os.path.exists(_from):
       # SELECT * FROM /tmp/spyql.jsonl
-      ext = _from.split(".")[-1].lower()
-      processor_from = file_ext2type.get(ext, None)
-      if processor_from == None:
-        user_warning(f"Unsupported file extension: '{ext}', loading as 'TEXT'")
-        processor_from = "TEXT"
+      processor = Processor._ext2filetype.get(_from.split(".")[-1].lower(), None)
+      if processor == None:
+        raise SyntaxError(f"Invalid FROM statement: '{_to}'")
 
-      self.parsed["from"] = processor_from
+      self.parsed["from"] = processor
       input_options = {"filepath": _from}
     else:
       # SELECT * FROM data
       input_options = {"source": _from}
 
+    # TO logic:
+    #   if nothing is determined meaning return
+    #   if is a string
+    #     if is a filepath -> write to file
     _to = self.parsed["to"]
     if _to == None:
       self.parsed["to"] = "PYTHON" # force return to python
     elif isinstance(_to, str):
+      # TO /tmp/spyql.jsonl
       if _to.upper() in Writer._valid_writers:
         raise SyntaxError(f"Cannot export to a writer format in interactive mode: '{_to}'")
       writer = Writer._ext2filetype.get(_to.split(".")[-1].lower(), None)
       if writer == None:
         raise SyntaxError(f"Invalid TO statement: '{_to}'")
+
       self.parsed["to"] = writer
       self.output_path = _to
     else:
       raise SyntaxError(f"Unsupported output type: '{_to}'")
 
-    try:
-      self.processor = Processor.make_processor(
-        prs = self.parsed,
-        strings = self.strings,
-        input_options = input_options
-      )
-    except Exception as e:
-      user_error(f"Failed to parse query: '{query}'", e)
+    # make the processor
+    self.processor = Processor.make_processor(
+      prs = self.parsed,
+      strings = self.strings,
+      input_options = input_options
+    )
 
   def __repr__(self) -> str:
     return f"Q(\"{self.query}\")"
 
   def __call__(self, **kwargs):
     # kwargs can take in multiple data sources as input in the future
-    if self.output_path != None:
-      with open(self.output_path, "w") as f:
-        self.processor.go(
-          output_file = f,
-          output_options = {},
-          user_query_vars = kwargs
-        )
-    else:
-      out = self.processor.go(
-        output_file = None,
-        output_options = {},
-        user_query_vars = kwargs
-      )
-      return out.output
+    f = open(self.output_path, "w") if self.output_path != None else None
+    out = self.processor.go(
+      output_file = f,
+      output_options = self.output_options,
+      user_query_vars = kwargs
+    )
+    return out.get("output")

@@ -101,6 +101,13 @@ def init_vars(user_query_vars = {}):
 
 class Processor:
     _valid_names = [None, "JSON", "CSV", "TEXT", "SPY"]
+    _ext2filetype = {
+        "json": "JSON",
+        "jsonl": "JSON",
+        "csv": "CSV",
+        "txt": "TEXT",
+        "spy": "SPY",
+    }
 
     @staticmethod
     def make_processor(prs, strings, input_options = {}):
