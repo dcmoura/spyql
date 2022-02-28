@@ -495,7 +495,7 @@ class CSVProcessor(Processor):
         dtypes_rows = [[self._test_dtype(col) for col in line] for line in reader]
         if dtypes_rows and dtypes_rows[0]:
             dtypes = [
-                max([row[c] for row in dtypes_rows]) for c in range(len(dtypes_rows[0]))
+                max([row[c] if c<len(row) else (-100, None) for row in dtypes_rows]) for c in range(len(dtypes_rows[0]))
             ]
             for c in range(len(dtypes)):
                 cast = dtypes[c][1]
