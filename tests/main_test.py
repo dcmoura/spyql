@@ -532,7 +532,7 @@ def test_distinct():
 
     # Distinct jsons
     res = run_cli(
-        "SELECT DISTINCT json FROM json EXPLODE json->a TO json",
+        "SELECT DISTINCT json FROM json EXPLODE json.a TO json",
         data=(
             '{"a": [1, 2, 2], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
             ' "four"}\n'
@@ -558,13 +558,13 @@ def test_null():
 
 def test_processors():
     # JSON input and NULLs
-    eq_test_1row("SELECT json->a FROM json", {"a": 1}, data='{"a": 1}\n')
-    eq_test_1row("SELECT json->a FROM json", {"a": NULL}, data='{"a": null}\n')
-    eq_test_1row("SELECT json->b FROM json", {"b": NULL}, data='{"a": 1}\n')
+    eq_test_1row("SELECT json.a FROM json", {"a": 1}, data='{"a": 1}\n')
+    eq_test_1row("SELECT json.a FROM json", {"a": NULL}, data='{"a": null}\n')
+    eq_test_1row("SELECT json.b FROM json", {"b": NULL}, data='{"a": 1}\n')
 
     # JSON EXPLODE
     eq_test_nrows(
-        "SELECT json->a, json->b FROM json EXPLODE json->a",
+        "SELECT json.a, json.b FROM json EXPLODE json.a",
         [
             {"a": 1, "b": "three"},
             {"a": 2, "b": "three"},
@@ -848,7 +848,7 @@ def test_metadata():
 
 
 def test_custom_syntax():
-    # easy access to dic fields
+    # easy access to dic fields using ->
     eq_test_1row(
         "SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour,"
         " col1->hello->world.upper() AS caps "
@@ -857,6 +857,16 @@ def test_custom_syntax():
         "WHERE col1->three > 0 "
         "ORDER BY col1->three",
         {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"},
+    )
+
+    # easy access to dic fields using .
+    eq_test_1row(
+        "SELECT col1.three * 2 as six, col1.hello.world.upper() AS caps "
+        "FROM {'three': 3, 'twenty one': 21,"
+        " 'hello': {'world': 'hello world'}} "
+        "WHERE col1.three > 0 "
+        "ORDER BY col1.three",
+        {"six": 6, "caps": "HELLO WORLD"},
     )
 
 

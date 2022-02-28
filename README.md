@@ -141,6 +141,7 @@ We added additional syntax for making querying easier:
 | Python | SpySQL shortcut| Purpose |
 | ------ | -------------- | ------- |
 | `json['hello']['planet earth']` | `json->hello->'planet earth'` | Easy access of elements in  dicts (e.g. JSONs) |
+| `json['hello']` | `json.hello` | Easy access of elements in  dicts (e.g. JSONs) |
 
 
 ### NULL datatype

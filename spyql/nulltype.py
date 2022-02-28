@@ -237,11 +237,10 @@ NULL_SAFE_FUNCS = {
 
 
 class NullSafeDict(dict):
-    __slots__ = ()  # no __dict__
-
     @staticmethod
     def __none2null(value):
         if type(value) is list:
+            # TODO consider conversion of tuples/sets/etc
             return [NULL if x is None else x for x in value]
         return NULL if value is None else value
 
@@ -253,13 +252,32 @@ class NullSafeDict(dict):
     def __init__(self, adic, dirty=True, **kwargs):
         # dirty option keeps None values in dict instead of converting to NULL
         self.update(adic if dirty else NullSafeDict.__none2null_dict(adic), **kwargs)
+        self.__dict__["_dirty"] = dirty
 
     def __getitem__(self, key):
         try:
-            # none2null is just needed when `dirty` is True (default)...
-            return NullSafeDict.__none2null(dict.__getitem__(self, key))
+            item = dict.__getitem__(self, key)
+            if type(item) is dict:
+                # lazy convertion of dicts
+                # TODO consider convertion of lists of dicts
+                return NullSafeDict(item, self._dirty)
+            if self._dirty:
+                # lazy convertion
+                return NullSafeDict.__none2null(item)
+            return item
         except KeyError:
             return self.__missing__(key)
+
+    def __getattr__(self, key):
+        if (
+            not key.startswith("__") or key in self
+        ):  # because of special methods like __getstate__
+            return self[key]
+        else:
+            raise AttributeError
+
+    def __setattr__(self, key, value):
+        self[key] = value
 
     def values(self):
         # attention: does not return a view
