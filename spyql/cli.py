@@ -216,7 +216,14 @@ def parse_wherelike(clause, strings):
 
     # Supports words containing [a-zA-Z0-9_\-]
     expr_pattern = re.compile(r"([\w-]+)(?:\s+(NOT))?\s+LIKE\s+([\w-]+)", re.IGNORECASE)
-    groups = re.search(expr_pattern, clause).groups()
+    groups = re.search(expr_pattern, clause)
+    if groups is None:
+        spyql.log.user_error(
+            f"{clause}",
+            SyntaxError("unexpected EOF while parsing")
+        )
+
+    groups = groups.groups()
     negate = "NOT" in {groups[1]} # placed within {} because it can be None
 
     if not groups[2] in strings:
@@ -230,7 +237,7 @@ def parse_wherelike(clause, strings):
     pattern = re.compile(r"(?<!\\)%").sub(r".*" , pattern)
     pattern = re.compile(r"([^\"].*[^\"])").sub(r"^\1$", pattern)
 
-    clause = "re.match({}, {})".format(pattern, groups[0])
+    clause = "re.match({}, str({}))".format(pattern, groups[0])
     clause = "not " + clause if negate else clause
 
     return clause

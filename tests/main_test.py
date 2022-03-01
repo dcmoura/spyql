@@ -193,6 +193,78 @@ def test_basic():
     )
 
 
+def test_wherelike():
+    base_data = """abc,def
+test1,a
+test2,a
+bla,a
+"""
+
+    # where like clause
+    eq_test_1row(
+        'SELECT * FROM range(3) WHERE col1 LIKE "1"', {"col1": 1}
+    )
+
+    # not matching
+    eq_test_nrows(
+        'SELECT * FROM range(3) WHERE col1 LIKE "5"', []
+    )
+
+    # where not like clause
+    eq_test_nrows(
+        'SELECT * FROM range(3) WHERE col1 NOT LIKE "1"', [{"col1": 0}, {"col1": 2}]
+    )
+
+    # non matching string
+    eq_test_nrows(
+        'SELECT abc FROM csv WHERE abc LIKE "x"',
+        [],
+        data=base_data
+    )
+
+    # matching string
+    eq_test_nrows(
+        'SELECT abc FROM csv WHERE abc LIKE "test1"',
+        [{"abc": "test1"}],
+        data=base_data
+    )
+
+    # wildcard in end
+    eq_test_nrows(
+        'SELECT abc FROM csv WHERE abc LIKE "test%"',
+        [{"abc": "test1"}, {"abc": "test2"}],
+        data=base_data
+    )
+
+    # wildcard in start
+    eq_test_nrows(
+        'SELECT abc FROM csv WHERE abc LIKE "%test"',
+        [{"abc": "1test"}, {"abc": "2test"}],
+        data=base_data+"1test,a\n2test,a\n"
+    )
+
+    # wildcard in start and end
+    eq_test_nrows(
+        'SELECT abc FROM csv WHERE abc LIKE "%test%"',
+        [{"abc": "test1"}, {"abc": "test2"}, {"abc": "1test1"}, {"abc": "2test2"}],
+        data=base_data+"1test1,a\n2test2,a\n"
+    )
+
+    # wildcard escaping
+    eq_test_nrows(
+        r'SELECT abc FROM csv WHERE abc LIKE "bla\\%bla"',
+        [{"abc": "bla%bla"}],
+        data=base_data+"bla%bla,a\n"
+    )
+
+    # wildcards only
+    eq_test_nrows(
+        r'SELECT abc FROM csv WHERE abc LIKE "%\\%%"',
+        [{"abc": "bla%bla"}],
+        data=base_data+"bla%bla,a\n"
+    )
+
+
 def test_orderby():
     # order by (1 col)
     eq_test_nrows(
@@ -773,6 +845,8 @@ def test_errors():
     exception_test("SELECT DISTINCT count_agg(1)", SyntaxError)
     exception_test("SELECT count_agg(1) GROUP BY 1", SyntaxError)
     exception_test("SELECT 1 FROM range(3) WHERE max_agg(col1) > 0", SyntaxError)
+    exception_test("SELECT * from range(3) WHERE col1 LIKE 1", SyntaxError)
+    exception_test("SELECT * from range(3) WHERE col1 LIKE", SyntaxError)
 
 
 def test_sql_output():
