@@ -437,7 +437,7 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     SELECT [ DISTINCT | PARTIALS ]
         [ * | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
-        [ WHERE python_expression ]
+        [ WHERE python_expression [ [NOT] LIKE string] ]
         [ GROUP BY output_column_number | python_expression  [, ...] ]
         [ ORDER BY output_column_number | python_expression
             [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
