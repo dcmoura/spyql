@@ -207,6 +207,23 @@ def parse_select(sel, strings):
     return res, has_distinct, has_partials
 
 
+def parse_wherelike(clause, strings):
+    """splits the LIKE clause and completely supports the SQL syntax
+    https://docs.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?view=sql-server-ver15"""
+    # We're not in a LIKE expression, do nothing
+    if not re.search("LIKE", clause):
+        return clause
+
+    mod_pattern = re.compile(r"([\w-]+)(?:\s+(NOT))?\s+LIKE\s+([\w-]+)", re.IGNORECASE)
+    modifs = re.search(mod_pattern, clause).groups()
+    negate = "NOT" in modifs
+
+    clause = "{}.startswith('{}')".format(modifs[0], modifs[2])
+    clause = "not " + clause if negate else clause
+
+    return clause
+
+
 def parse_orderby(clause, strings):
     """splits the ORDER BY clause and handles modifiers"""
 
@@ -275,9 +292,10 @@ def parse(query):
         "order by",
     }:
         if prs[clause]:
+            prs[clause] = make_expr_ready(prs[clause], strings)
             if clause in {"where", "from"}:
                 throw_error_if_has_agg_func(prs[clause], clause.upper())
-            prs[clause] = make_expr_ready(prs[clause], strings)
+                prs[clause] = parse_wherelike(prs[clause], strings)
 
     for clause in {"group by"}:
         if prs[clause]:
