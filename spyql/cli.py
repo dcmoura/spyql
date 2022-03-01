@@ -214,11 +214,23 @@ def parse_wherelike(clause, strings):
     if not re.search("LIKE", clause):
         return clause
 
-    mod_pattern = re.compile(r"([\w-]+)(?:\s+(NOT))?\s+LIKE\s+([\w-]+)", re.IGNORECASE)
-    modifs = re.search(mod_pattern, clause).groups()
-    negate = "NOT" in modifs
+    # Supports words containing [a-zA-Z0-9_\-]
+    expr_pattern = re.compile(r"([\w-]+)(?:\s+(NOT))?\s+LIKE\s+([\w-]+)", re.IGNORECASE)
+    groups = re.search(expr_pattern, clause).groups()
+    negate = "NOT" in {groups[1]} # placed within {} because it can be None
 
-    clause = "{}.startswith('{}')".format(modifs[0], modifs[2])
+    if not groups[2] in strings:
+        spyql.log.user_error(
+            f"{groups[2]}: missing quotes, must be a string",
+            SyntaxError("bad query")
+        )
+
+    # Replacing SQL wildcard '%' for regex wildcard '.*' if not preceded by '\'
+    pattern = strings.put_strings_back(groups[2])
+    pattern = re.compile(r"(?<!\\)%").sub(r".*" , pattern)
+    pattern = re.compile(r"([^\"].*[^\"])").sub(r"^\1$", pattern)
+
+    clause = "re.match({}, {})".format(pattern, groups[0])
     clause = "not " + clause if negate else clause
 
     return clause
