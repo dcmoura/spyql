@@ -9,6 +9,9 @@ class QuotesHandler:
     def __init__(self):
         self.strings = {}
 
+    def __iter__(self):
+        return iter(self.strings)
+
     # replaces quoted strings by placeholders to make parsing easier
     # populates dictionary of placeholders and the strings they hold
     def extract_strings(self, query):
