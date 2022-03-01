@@ -182,12 +182,16 @@ def parse_select(sel, strings):
 
     res = []
     as_pattern = re.compile(r"\s+AS\s+", re.IGNORECASE)
+    except_pattern = re.compile(r"\*\s*EXCEPT\s*\(.*\)", re.IGNORECASE)
     for expr in split_multi_expr_clause(sel):
-        sas = re.search(as_pattern, expr)
+        as_match = re.search(as_pattern, expr)
+        except_match = re.search(except_pattern, expr)
         name = ""
-        if sas:
-            name = expr[(sas.span()[1]) :].strip()
-            expr = expr[: (sas.span()[0])]
+        if as_match:
+            name = expr[(as_match.span()[1]) :].strip()
+            expr = expr[: (as_match.span()[0])]
+        elif except_match:
+            name = expr
         else:
             # automatic output column name from expression
             # removes json 'variable' reference (visual garbage)
@@ -398,7 +402,8 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     \b
     [ IMPORT python_module [ AS identifier ] [, ...] ]
     SELECT [ DISTINCT | PARTIALS ]
-        [ * | python_expression [ AS output_column_name ] [, ...] ]
+        [ * [EXCEPT (column_name [, ...])]
+            | python_expression [ AS output_column_name ] [, ...] ]
         [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
         [ WHERE python_expression ]
         [ GROUP BY output_column_number | python_expression  [, ...] ]

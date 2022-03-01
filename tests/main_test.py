@@ -193,6 +193,52 @@ def test_basic():
     )
 
 
+def test_except():
+
+    # get all columns except one from a CSV
+    eq_test_nrows(
+        "SELECT * EXCEPT (b) FROM csv",
+        [{"a": 1, "c": 3}, {"a": 4, "c": 6}, {"a": 7, "c": 9}],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+
+    eq_test_nrows(
+        "SELECT * EXCEPT(b) FROM csv",
+        [{"a": 1, "c": 3}, {"a": 4, "c": 6}, {"a": 7, "c": 9}],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+
+    # get all columns except two from a CSV
+    eq_test_nrows(
+        "SELECT * EXCEPT(a,c) FROM csv",
+        [{"b": 2}, {"b": 5}, {"b": 8}],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+
+    eq_test_nrows(
+        "SELECT * EXCEPT ( a , c ) FROM csv",
+        [{"b": 2}, {"b": 5}, {"b": 8}],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+
+    # get one column and all except one from a CSV
+    eq_test_nrows(
+        "SELECT b, * EXCEPT (b) FROM csv",
+        [{"b": 2, "a": 1, "c": 3}, {"b": 5, "a": 4, "c": 6}, {"b": 8, "a": 7, "c": 9}],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+
+    eq_test_nrows(
+        "SELECT b AS banana, * EXCEPT (c) FROM csv",
+        [
+            {"banana": 2, "a": 1, "b": 2},
+            {"banana": 5, "a": 4, "b": 5},
+            {"banana": 8, "a": 7, "b": 8},
+        ],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+
+
 def test_orderby():
     # order by (1 col)
     eq_test_nrows(

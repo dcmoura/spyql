@@ -129,6 +129,27 @@ class Processor:
         # dict of {col1: value1, ...}
         self.translations["row"] = f"NullSafeDict(zip(_names, {cols_expr}))"
 
+    def expand_col_names(self, all_col_names, name):
+        """
+        Expands column wildcard operator and modifiers
+        """
+        except_pattern = re.compile(r"\*\s*EXCEPT\s*\((.*)\)", re.IGNORECASE)
+        except_match = re.search(except_pattern, name)
+
+        if name == "*":
+            return all_col_names
+        elif except_match:
+            except_col_names = [
+                col_name.strip() for col_name in except_match.group(1).split(",")
+            ]
+            return [
+                col_name
+                for col_name in all_col_names
+                if col_name not in except_col_names
+            ]
+        else:
+            return [name]
+
     def make_out_cols_names(self, out_cols_names):
         """
         Creates list of output column names
@@ -138,12 +159,15 @@ class Processor:
             input_col_names = [
                 self.default_col_name(i) for i in range(self.n_input_cols)
             ]
+
         out_cols_names = [
-            (input_col_names if name == "*" else [name]) for name in out_cols_names
+            self.expand_col_names(input_col_names, name) for name in out_cols_names
         ]
+
         out_cols_names = [
             name for sublist in out_cols_names for name in sublist
         ]  # flatten
+
         return out_cols_names
 
     def get_input_iterator(self):
@@ -167,12 +191,22 @@ class Processor:
         Replaces identifiers (column names) in sql expressions by references to
         `_values` and put (quoted) strings back
         """
-        if expr == "*":
-            return self.col_values_exprs
-
         if isinstance(expr, int):
             # special case: expression is out col number (1-based)
             return [f"_res[{expr-1}]"]  # reuses existing result
+
+        if expr == "*":
+            return self.col_values_exprs
+
+        except_pattern = re.compile(r"\*\s*EXCEPT\s*\((.*)\)", re.IGNORECASE)
+        except_match = re.search(except_pattern, expr)
+        if except_match:
+            excpt = [x.strip() for x in except_match.group(1).split(",")]
+            return [
+                val
+                for _i, val in enumerate(self.col_values_exprs)
+                if self.input_col_names[_i] not in excpt
+            ]
 
         for id, replacement in self.translations.items():
             pattern = rf"\b({id})\b"
