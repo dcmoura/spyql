@@ -106,9 +106,7 @@ class Processor:
             self.default_col_name(_i) for _i in range(self.n_input_cols)
         ]
         self.col_values_exprs = [
-            f"{self.casts[_i]}_(_values[{_i}])"
-            if _i in self.casts
-            else f"_values[{_i}]"
+            f"{self.casts[_i]}(_values[{_i}])" if _i in self.casts else f"_values[{_i}]"
             for _i in range(self.n_input_cols)
         ]
         # dictionary to translate col names to accesses to `_values`
@@ -477,15 +475,15 @@ class CSVProcessor(Processor):
             return (-100, None)  # empty string: do not cast
         try:
             int(v)
-            return (10, "int")
+            return (10, "int_")
         except ValueError:
             try:
                 float(v)
-                return (20, "float")
+                return (20, "float_")
             except ValueError:
                 try:
                     complex(v)
-                    return (30, "complex")
+                    return (30, "complex_")
                 except ValueError:
                     return (100, None)  # not a basic type: do not cast
 
@@ -495,7 +493,8 @@ class CSVProcessor(Processor):
         dtypes_rows = [[self._test_dtype(col) for col in line] for line in reader]
         if dtypes_rows and dtypes_rows[0]:
             dtypes = [
-                max([row[c] if c<len(row) else (-100, None) for row in dtypes_rows]) for c in range(len(dtypes_rows[0]))
+                max([row[c] if c < len(row) else (-100, None) for row in dtypes_rows])
+                for c in range(len(dtypes_rows[0]))
             ]
             for c in range(len(dtypes)):
                 cast = dtypes[c][1]
