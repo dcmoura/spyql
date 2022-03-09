@@ -1,37 +1,11 @@
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-
 import json
 from tempfile import gettempdir
 
 from spyql.query import Query
-from spyql import log
 from spyql.utils import join_paths
-
-
-def eq_test_nrows(query, expectation, **kwargs):
-    log.user_debug(f"----")
-    q = Query(query)
-    log.user_debug(f"{q}")
-    res = q(**kwargs)
-    log.user_debug(f"{len(expectation)} vs {len(res)} => {res} ")
-    assert len(res) == len(expectation)
-    # TODO: test actual output against expectation!
-
-
-def eq_test_1row(query, expectation, **kwargs):
-    eq_test_nrows(query, [expectation], **kwargs)
-
-
-def exception_test(query, anexception, **kwargs):
-    q = Query(query)
-    res = q(**kwargs)
-    assert res.exit_code != 0
-    assert isinstance(res.exception, anexception)
-
-
-# new tests
+from spyql.nulltype import NULL, NullSafeDict
+import os
+import math
 
 raw_data = [
     {"name": "A", "age": 20, "salary": 30.0},
@@ -39,67 +13,78 @@ raw_data = [
     {"name": "C", "age": 40, "salary": 6.0},
     {"name": "D", "age": 50, "salary": 0.40},
 ]
-json_fpath = join_paths(gettempdir(), "spyql_test.jsonl")
-with open(json_fpath, "w") as f:
-    for d in raw_data:
-        f.write(json.dumps(d) + "\n")
 
-csv_fpath = join_paths(gettempdir(), "spyql_test.csv")
-with open(csv_fpath, "w") as f:
-    f.write(
-        """name, age, salary
-A, 20, 30.
-B, 30, 12.
-C, 40, 6.
-D, 50, 0.40"""
+
+def make_json():
+    json_fpath = join_paths(gettempdir(), "spyql_test.jsonl")
+    with open(json_fpath, "w") as f:
+        for d in raw_data:
+            f.write(json.dumps(d) + "\n")
+    return json_fpath
+
+
+def make_csv():
+    csv_fpath = join_paths(gettempdir(), "spyql_test.csv")
+    with open(csv_fpath, "w") as f:
+        f.write(
+            """name, age, salary
+    A, 20, 30.
+    B, 30, 12.
+    C, 40, 6.
+    D, 50, 0.40"""
+        )
+    return csv_fpath
+
+
+def test_query_result():
+    query = Query(
+        "SELECT row.name as first_name, row.age as user_age FROM data WHERE"
+        " row.age > 30"
     )
-
-
-def test_ux():
-    _q = Query(
-        "SELECT row->name as first_name, row->age as user_age FROM data WHERE"
-        " row->age > 30"
+    out = query(data=raw_data)
+    assert out == (
+        {"first_name": "C", "user_age": 40},
+        {"first_name": "D", "user_age": 50},
     )
-    log.user_debug(f"Query: {_q}")
-    out = _q(data=raw_data)
-    log.user_debug(f"Output by Query: {out}")
-    assert len(out) == 2  # [('C', 40), ('D', 50)]
-
-    out = Query(
-        "SELECT row->name as first_name, row->age as user_age FROM data WHERE"
-        " row->age < 30"
-    )(data=raw_data)
-    log.user_debug(f"Output functional: {out}")
-    assert len(out) == 1  # [('A', 20)]
-
-    # get mean of salaries of people whose age is greater than 30
-    def get_mean_salary_math(data):
-        salary = [d["salary"] for d in data if d["age"] >= 30]
-        return sum(salary) / len(salary)
-
-    log.user_debug(f"Mean salary by math: {get_mean_salary_math(raw_data): .3f}")
-
-    # using SpyQL
-    out = Query(
-        "SELECT sum_agg(row->salary) / len(data) as sum_salary FROM data WHERE"
-        " row->age >= 30"
-    )(data=raw_data)
-    log.user_debug(f"Mean salary by math: {out}")
+    assert out.first_name == ("C", "D")
+    assert out.col("first_name") == ("C", "D")
+    assert out.col(0) == ("C", "D")
+    assert out[0:2].first_name == ("C", "D")
+    assert out.first_name[0] == "C"
+    assert out[0].first_name == "C"
+    assert out.user_age == (40, 50)
+    assert out.col("user_age") == (40, 50)
+    assert out.col(1) == (40, 50)
+    assert out[0:2].user_age == (40, 50)
+    assert out.user_age[-1] == 50
+    assert out[-1].user_age == 50
+    assert out.colnames() == ("first_name", "user_age")
+    assert out.I_do_not_exist == (NULL, NULL)
+    assert out[0].I_do_not_exist is NULL
+    try:
+        out.col(1000)
+        assert False
+    except IndexError:
+        assert True
+    assert query.stats() == {"rows_in": 4, "rows_out": 2}
 
 
 def test_json_read():
+    json_fpath = make_json()
     query = Query(
-        "SELECT json->name as first_name, json->age as user_age FROM"
-        f" json('{json_fpath}') WHERE json->age > 30"
+        "SELECT json.name as first_name, json.age as user_age FROM"
+        f" json('{json_fpath}') WHERE json.age > 30"
     )
     out = query()
     assert out == (
         {"first_name": "C", "user_age": 40},
         {"first_name": "D", "user_age": 50},
     )
+    os.remove(json_fpath)
 
 
 def test_csv_read():
+    csv_fpath = make_csv()
     query = Query(
         f"SELECT name as first_name, age as user_age FROM csv('{csv_fpath}') WHERE age"
         " > 30"
@@ -109,9 +94,11 @@ def test_csv_read():
         {"first_name": "C", "user_age": 40},
         {"first_name": "D", "user_age": 50},
     )
+    os.remove(csv_fpath)
 
 
 def test_csv_write():
+    csv_fpath = make_csv()
     target_csv = join_paths(gettempdir(), "spyql_test_write.csv")
     query = Query(
         f"SELECT name, age FROM csv('{csv_fpath}') WHERE age > 30 TO"
@@ -124,40 +111,90 @@ def test_csv_write():
 
     assert out.strip().replace("\n", " ") == "name,age C,40 D,50"
 
+    os.remove(csv_fpath)
+    os.remove(target_csv)
+
+
+def read_json(filename):
+    with open(filename, "r") as f:
+        return [json.loads(l) for l in f.read().strip().splitlines()]
+
 
 def test_json_write():
-    target_json = join_paths(gettempdir(), "spyql_test_write.jsonl")
-    query = Query(
+    csv_fpath = make_csv()
+    target_json = join_paths(gettempdir(), "spyql_test_write1.jsonl")
+    Query(
         f"SELECT name, age FROM csv('{csv_fpath}') WHERE age > 30 TO"
         f" json('{target_json}')"
-    )
-    query()
-
-    with open(target_json, "r") as f:
-        data = []
-        for l in f.read().strip().splitlines():
-            data.append(json.loads(l))
-
-    assert data == [{"name": "C", "age": 40}, {"name": "D", "age": 50}]
+    )()
+    assert read_json(target_json) == [
+        {"name": "C", "age": 40},
+        {"name": "D", "age": 50},
+    ]
+    os.remove(csv_fpath)
+    os.remove(target_json)
 
 
 def test_csv_read_json_write():
-    target_json = join_paths(gettempdir(), "spyql_test_write.jsonl")
-    query = Query(
+    csv_fpath = make_csv()
+    target_json = join_paths(gettempdir(), "spyql_test_write2.jsonl")
+    Query(
         f"SELECT name, age FROM csv('{csv_fpath}') WHERE age > 30 TO"
         f" json('{target_json}')"
+    )()
+    assert read_json(target_json) == [
+        {"name": "C", "age": 40},
+        {"name": "D", "age": 50},
+    ]
+    os.remove(csv_fpath)
+    os.remove(target_json)
+
+
+def test_read_invalid_file():
+    try:
+        Query("SELECT * FROM csv('where is this file???')")()
+        assert False
+    except FileNotFoundError:
+        assert True
+
+
+def test_write_invalid_file():
+    try:
+        Query("SELECT * FROM range(10) TO csv('this * is a bad / file name')")()
+        assert False
+    except FileNotFoundError:
+        assert True
+
+
+def test_equi_join():
+    query = Query("SELECT row.name, names[row.name] AS ext_name FROM data")
+    out = query(
+        data=raw_data, names=NullSafeDict({"A": "Alice", "C": "Chris", "D": "Daniel"})
     )
-    query()
-
-    with open(target_json, "r") as f:
-        data = []
-        for l in f.read().strip().splitlines():
-            data.append(json.loads(l))
-
-    assert data == [{"name": "C", "age": 40}, {"name": "D", "age": 50}]
+    assert out == (
+        {"name": "A", "ext_name": "Alice"},
+        {"name": "B", "ext_name": NULL},
+        {"name": "C", "ext_name": "Chris"},
+        {"name": "D", "ext_name": "Daniel"},
+    )
 
 
-def test_complex_interactive():
+def test_globals():
+    # accessing `os`` module and `raw_data` via `globals()`
+    query = Query(
+        "SELECT row.name as first_name, row.age as user_age, os.getpid() > 0 as test_os"
+        " FROM raw_data WHERE row.age > 30"
+    )
+    out = query(**globals())
+    assert out == (
+        {"first_name": "C", "user_age": 40, "test_os": True},
+        {"first_name": "D", "user_age": 50, "test_os": True},
+    )
+
+
+def test_readme():
+    # TODO test all recipes in the README
+
     query = Query(
         'IMPORT hashlib as hl SELECT hl.md5(col1.encode("utf-8")).hexdigest() as h FROM'
         " data"
@@ -168,34 +205,38 @@ def test_complex_interactive():
         {"h": "92eb5ffee6ae2fec3ad71c777531578f"},
         {"h": "4a8a08f09d37b73795649038408b5f33"},
     )
+    assert query.stats() == {"rows_in": 3, "rows_out": 3}
 
-
-def test_readme():
-    # all the tests given in the README
     query = Query(
-        "SELECT row->invoice_num AS id, row->items->name AS name, row->items->price"
-        " AS price FROM data EXPLODE row->items"
+        "SELECT row.invoice_num AS id, row.items_sold.name AS name,"
+        " row.items_sold.price AS price FROM data EXPLODE row.items_sold"
     )
     out = query(
         data=[
             {
                 "invoice_num": 1028,
-                "items": [
+                "items_sold": [
                     {"name": "tomatoes", "price": 1.5},
                     {"name": "bananas", "price": 2.0},
                 ],
             },
-            {"invoice_num": 1029, "items": [{"name": "peaches", "price": 3.12}]},
+            {"invoice_num": 1029, "items_sold": [{"name": "peaches", "price": 3.12}]},
         ]
     )
+
     assert out == (
         {"id": 1028, "name": "tomatoes", "price": 1.5},
         {"id": 1028, "name": "bananas", "price": 2.0},
         {"id": 1029, "name": "peaches", "price": 3.12},
     )
 
-    query = Query("SELECT 10 * cos(col1 * ((pi * 4) / 90)) FROM range(80)")
-    out = query()
+    expectation = tuple(
+        [10 * math.cos(col1 * ((math.pi * 4) / 90)) for col1 in range(80)]
+    )
+    out = Query("SELECT 10 * cos(col1 * ((pi * 4) / 90)) FROM range(80)")()
+    assert out.col(0) == expectation
+    assert len(out.colnames()) == 1
 
-    query = Query("SELECT * FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]")
-    out = query()
+    out = Query("SELECT * FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]")()
+    assert out.col(0) == expectation
+    assert len(out.colnames()) == 1
