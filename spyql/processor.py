@@ -175,7 +175,7 @@ class Processor:
             return [f"_res[{expr-1}]"]  # reuses existing result
 
         for id, replacement in self.translations.items():
-            pattern = rf"\b({id})\b"
+            pattern = rf"(?<![\w\.])({id})\b"
             expr = re.compile(pattern).sub(replacement, expr)
 
         return [self.strings.put_strings_back(expr)]
