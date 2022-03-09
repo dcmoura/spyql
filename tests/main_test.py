@@ -903,6 +903,9 @@ def test_errors():
     exception_test("SELECT DISTINCT count_agg(1)", SyntaxError)
     exception_test("SELECT count_agg(1) GROUP BY 1", SyntaxError)
     exception_test("SELECT 1 FROM range(3) WHERE max_agg(col1) > 0", SyntaxError)
+    exception_test(
+        "SELECT row.a FROM [{'a':1},{'a':2},{'a':3}] EXPLODE row.a", TypeError
+    )
 
 
 def test_sql_output():

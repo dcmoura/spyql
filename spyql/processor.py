@@ -400,7 +400,15 @@ class Processor:
 
             if explode_expr:
                 explode_its = self.eval_clause("explode", explode_expr)
-
+                if not isiterable(explode_its):
+                    spyql.log.user_error(
+                        "Invalid EXPLODE clause",
+                        TypeError(
+                            f"{self.prs['explode']} has type {type(explode_its)}, which"
+                            " is not iterable"
+                        ),
+                        vars=self.vars,
+                    )
             for explode_it in explode_its:
                 if explode_expr:
                     self.vars["explode_it"] = explode_it
