@@ -237,6 +237,26 @@ NULL_SAFE_FUNCS = {
 
 
 class NullSafeDict(dict):
+    """
+    A dictionary that supports :data:`~spyql.nulltype.NULL` where items can
+    be accessed like attributes::
+
+        mydict = NullSafeDict({
+            "a": 1,
+            "b": {
+                "c": 2
+            },
+            "d": None
+        })
+        mydict.a    # returns 1, same as mydict["a"]
+        mydict.z    # returns NULL whenever a key is not found
+        mydict.b.c  # returns 2, neested dicts also support attribute access
+        mydict.b.x  # returns NULL, neested dicts are null-safe too
+        mydict.d    # returns NULL, Nones are converted to NULLs)
+
+
+    """
+
     @staticmethod
     def __none2null(value):
         if type(value) is list:
@@ -280,11 +300,17 @@ class NullSafeDict(dict):
         self[key] = value
 
     def values(self):
-        # attention: does not return a view
+        """
+        Returns a tuple of the dict values.
+        Attention: does not return a view like dict!
+        """
         return tuple([NullSafeDict.__none2null(x) for x in super().values()])
 
     def items(self):
-        # attention: does not return a view
+        """
+        Returns a zip of keys and values.
+        Attention: does not return a view like dict!
+        """
         return zip(self.keys(), self.values())
 
     # returns NULL when key is not found

@@ -9,6 +9,30 @@ import spyql.log
 
 
 class Query:
+    '''
+    A SPyQL query than can be executed on top of a file or variables producing a file or a :class:`~spyql.query_result.QueryResult`.
+    Example::
+
+        query = Query("""
+            SELECT row.name as first_name, row.age
+            FROM data
+            WHERE row.age > 30
+        """)
+
+        result = query(data=[
+            {"name": "Alice", "age": 20, "salary": 30.0},
+            {"name": "Bob", "age": 30, "salary": 12.0},
+            {"name": "Charles", "age": 40, "salary": 6.0},
+            {"name": "Daniel", "age": 43, "salary": 0.40},
+        ])
+
+        ## result:
+        # (
+        #    {"first_name": "Charles", "age": 40},
+        #    {"first_name": "Daniel", "age": 43},
+        # )
+    '''
+
     def __init__(
         self,
         query: str,
@@ -20,34 +44,28 @@ class Query:
         default_to_clause="MEMORY",
     ) -> None:
         """
-        Make spyql interactive.
+        Creates a ``Query`` object (does not execute the query).
 
-        [ IMPORT python_module [ AS identifier ] [, ...] ]
-        SELECT [ DISTINCT | PARTIALS ]
-            [ * | python_expression [ AS output_column_name ] [, ...] ]
-            [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
-            [ WHERE python_expression ]
-            [ GROUP BY output_column_number | python_expression  [, ...] ]
-            [ ORDER BY output_column_number | python_expression
-                [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
-            [ LIMIT row_count ]
-            [ OFFSET num_rows_to_skip ]
-            [ TO csv | json | spy | sql | pretty | plot | memory ]
-
-        Usage
-        -----
-
-        .. code-block:: python
-
-          >>> q = Q("IMPORT numpy SELECT numpy.mean(data->salary) FROM data WHERE data->name == 'akash'")
-          >>> q(data = data)
-
-        Args
-        ----
-
-          query(str): SpyQL string
-          input_opt/output_opt: kwargs for the input and writers, in this case of interactive mode we can
-            ignore these
+        :param query: a spyql query
+        :type query: str
+        :param input_options: options to be passed to the input processor.
+            e.g. ``{"delimiter": ","}``
+        :type input_options: dict, optional
+        :param output_options: options to be passed to the output writer.
+            e.g. ``{"delimiter": ";", "header": False}``
+        :type output_options: dict, optional
+        :param unbuffered: forces output to be unbuffered.
+        :type unbuffered: bool, optional
+        :param warning_flag: set to "error" to turn warnings into errors
+            (halting execution)
+        :type warning_flag: str, optional
+        :param verbose: set the verbosity level:
+            -2 to supress errors and warnings;
+            -1 to supress warnings;
+            0 to only show errors and warnings (default);
+            1 to show additional info messages;
+            2 to show additional debug messages.
+        :type verbose: int, optional
         """
 
         logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
@@ -67,7 +85,11 @@ class Query:
         return f'Query("{self.query}")'
 
     def __call__(self, **kwargs):
-        # kwargs can take in multiple data sources as input in the future
+        """
+        Executes the query.
+        ``kwargs`` can take in multiple variables that are included in the
+        scope of the query.
+        """
         processor = None
         result = None
         self.__stats = None
@@ -91,4 +113,10 @@ class Query:
         return result
 
     def stats(self):
+        """
+        Returns a dictionary with statistics about the query execution,
+        namely the number of rows in the input and output.
+
+        :rtype: dict
+        """
         return self.__stats

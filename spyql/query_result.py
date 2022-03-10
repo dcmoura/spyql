@@ -40,9 +40,12 @@ class QueryResult(tuple):
 
     def col(self, idx):
         """
-        Collects and returns a tuple with all values of the col defined by `idx`.
-        If `idx` is an integer it refers to the nth column (0-based indexing).
-        If `idx` is a string it refers to the name of the column.
+        Collects and returns a tuple with all values of the col defined by
+        `idx`.
+
+        :param idx: if `idx` is an integer it refers to the nth column
+            (0-based indexing). If `idx` is a string it refers to the name of
+            the column.
         """
         if isinstance(idx, int):
             idx = self.__colnames[idx]
@@ -58,5 +61,7 @@ class QueryResult(tuple):
         return QueryResult(res, self.__colnames) if isinstance(res, tuple) else res
 
     def colnames(self):
-        """Returns the names of the columns"""
+        """Returns a tuple with the name of each column.
+
+        :rtype: tuple[str]"""
         return self.__colnames
