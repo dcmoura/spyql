@@ -42,8 +42,8 @@ def isiterable(x):
 
 def is_row_collapsable(row, colnames):
     """
-    Returns True if `row` is only has a single column with a default name and is a dict.
-    In this case, a row (of type dict) can take the value of the first column
+    Returns True if `row` only has a single column of type dict with a default name.
+    In this case, a row (of type dict) can take the value of the first column.
     """
     return (
         len(row) == 1
