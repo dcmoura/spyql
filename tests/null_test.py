@@ -1,16 +1,6 @@
-from spyql.nulltype import (
-    NULL,
-    Null,
-    null,
-    float_,
-    int_,
-    str_,
-    complex_,
-    ifnull,
-    nullif,
-    coalesce,
-    NullSafeDict,
-)
+from spyql.nulltype import *
+from spyql.sqlfuncs import *
+from spyql.qdict import qdict
 import numpy as np
 import math
 
@@ -229,10 +219,10 @@ def test_misc():
 
 
 def test_dict():
-    NullSafeDict({})["abc"] is NULL
-    NullSafeDict({"abc": None})["abc"] is NULL
-    NullSafeDict({"abc": None})["abc"] is not None  # Attention!
-    NullSafeDict({"abc": 1})["abc"] is not NULL
-    NullSafeDict({"abc": "def"})["abc"] is not NULL
-    NullSafeDict({})["abc"]["def"]["hij"] is NULL
-    NullSafeDict({"abc": {"def": 1}})["abc"]["def"] is not NULL
+    qdict({})["abc"] is NULL
+    qdict({"abc": None})["abc"] is NULL
+    qdict({"abc": None})["abc"] is not None  # Attention!
+    qdict({"abc": 1})["abc"] is not NULL
+    qdict({"abc": "def"})["abc"] is not NULL
+    qdict({})["abc"]["def"]["hij"] is NULL
+    qdict({"abc": {"def": 1}})["abc"]["def"] is not NULL

@@ -3,7 +3,8 @@ from tempfile import gettempdir
 
 from spyql.query import Query
 from spyql.utils import join_paths
-from spyql.nulltype import NULL, NullSafeDict
+from spyql.nulltype import NULL
+from spyql.qdict import qdict
 import os
 import math
 
@@ -168,9 +169,7 @@ def test_write_invalid_file():
 
 def test_equi_join():
     query = Query("SELECT row.name, names[row.name] AS ext_name FROM data")
-    out = query(
-        data=raw_data, names=NullSafeDict({"A": "Alice", "C": "Chris", "D": "Daniel"})
-    )
+    out = query(data=raw_data, names=qdict({"A": "Alice", "C": "Chris", "D": "Daniel"}))
     assert out == (
         {"name": "A", "ext_name": "Alice"},
         {"name": "B", "ext_name": NULL},

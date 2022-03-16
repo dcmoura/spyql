@@ -155,7 +155,7 @@ Python's `None` generates exceptions when making operations on missing data, bre
 | `int('')`   |  `ValueError` | `NULL` | yes |
 | `int('abc')` | `ValueError` | `NULL` | yes |
 
-The above dictionary key access only returns `NULL` if the dict is an instance of `NullSafeDict`. SpyQL adds `NullSafeDict`, which extends python's native `dict`. JSONs are automatically loaded as `NullSafeDict`. Unless you are creating dictionaries on the fly you do not need to worry about this.
+The above dictionary key access only returns `NULL` if the dict is an instance of `qdict`. SpyQL adds `qdict`, which extends python's native `dict`. JSONs are automatically loaded as `qdict`. Unless you are creating dictionaries on the fly you do not need to worry about this.
 
 ## Importing python modules and user-defined functions
 

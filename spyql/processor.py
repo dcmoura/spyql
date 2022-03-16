@@ -13,6 +13,8 @@ from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
 from spyql.query_result import QueryResult
 import spyql.nulltype
+import spyql.sqlfuncs
+import spyql.qdict
 import spyql.log
 from spyql.utils import make_str_valid_varname, isiterable, is_row_collapsable
 import spyql.agg
@@ -25,6 +27,8 @@ def init_vars(user_query_vars={}):
     exec(
         "from datetime import datetime, date, timezone\n"
         "from spyql.nulltype import *\n"
+        "from spyql.sqlfuncs import *\n"
+        "from spyql.qdict import *\n"
         "from spyql.agg import *\n"
         "from math import *\n"
         "import re\n",
@@ -103,7 +107,7 @@ class Processor:
 
         self.input_col_names = []  # column names of the input data
         self.translations = copy.deepcopy(
-            spyql.nulltype.NULL_SAFE_FUNCS
+            spyql.sqlfuncs.NULL_SAFE_FUNCS
         )  # map for alias, functions to be renamed...
         self.has_header = False
         self.casts = dict()
@@ -161,7 +165,7 @@ class Processor:
         row_expr = (
             self.col_values_exprs[0]
             if is_row_collapsable(row, _names)
-            else f"NullSafeDict(zip(_names, {cols_expr}))"
+            else f"qdict(zip(_names, {cols_expr}))"
         )
 
         self.row_expr = compile(row_expr, "row_expr", "eval")
@@ -466,10 +470,10 @@ class PythonExprProcessor(Processor):
                 e = [e]
             if not isiterable(e[0]):
                 e = [[el] for el in e]
-            # casting dict to NullSafeDict based on data on the first row
+            # casting dict to qdict based on data on the first row
             for i, val in enumerate(e[0]):
                 if type(val) is dict:
-                    self.casts[i] = "NullSafeDict"
+                    self.casts[i] = "qdict"
         return e
 
 
@@ -514,7 +518,7 @@ class JSONProcessor(Processor):
         # this might not be the most efficient way of converting None -> NULL, look at:
         # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
         decoder = jsonlib.JSONDecoder(
-            object_pairs_hook=spyql.nulltype.NullSafeDict,
+            object_pairs_hook=spyql.qdict.qdict,
             **self.options,
         )
 

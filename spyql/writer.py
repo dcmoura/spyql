@@ -8,7 +8,8 @@ import sys
 import io
 
 from spyql.log import user_debug, user_error, user_error
-from spyql.nulltype import NULL, NullSafeDict
+from spyql.nulltype import NULL
+from spyql.qdict import qdict
 from spyql.query_result import QueryResult
 from spyql.utils import is_row_collapsable
 
@@ -155,7 +156,7 @@ class MemoryWriter(CollectWriter):
         if not self.all_rows:
             # makes decision to collapse based on the first row
             self.__colapse = is_row_collapsable(row, self.header)
-        return row[0] if self.__colapse else NullSafeDict(zip(self.header, row))
+        return row[0] if self.__colapse else qdict(zip(self.header, row))
 
     def result(self):
         return QueryResult(self.all_rows, self.header)

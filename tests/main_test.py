@@ -8,7 +8,8 @@ import spyql.cli
 import spyql.log
 from spyql.writer import SpyWriter
 from spyql.processor import SpyProcessor
-from spyql.nulltype import NULL, NullSafeDict
+from spyql.nulltype import NULL
+from spyql.qdict import qdict
 from tabulate import tabulate
 import json
 import csv
@@ -22,7 +23,7 @@ import sys
 # --------  AUX FUNCTIONS  --------
 def json_output(out):
     return [
-        json.loads(line, object_hook=lambda x: NullSafeDict(x, dirty=False))
+        json.loads(line, object_hook=lambda x: qdict(x, dirty=False))
         for line in out.splitlines()
     ]
 

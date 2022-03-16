@@ -1,10 +1,6 @@
-import os
-import sys
-import io
 import logging
-from .parser import parse
-from .processor import Processor
-from .writer import Writer
+from spyql.parser import parse
+from spyql.processor import Processor
 import spyql.log
 
 
