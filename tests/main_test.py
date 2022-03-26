@@ -1,9 +1,15 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+
 from click.testing import CliRunner
 import spyql.cli
 import spyql.log
 from spyql.writer import SpyWriter
 from spyql.processor import SpyProcessor
-from spyql.nulltype import NULL, NullSafeDict
+from spyql.nulltype import NULL
+from spyql.qdict import qdict
 from tabulate import tabulate
 import json
 import csv
@@ -11,12 +17,13 @@ import io
 import sqlite3
 import math
 from functools import reduce
+import sys
 
 
 # --------  AUX FUNCTIONS  --------
 def json_output(out):
     return [
-        json.loads(line, object_hook=lambda x: NullSafeDict(x, dirty=False))
+        json.loads(line, object_hook=lambda x: qdict(x, dirty=False))
         for line in out.splitlines()
     ]
 
@@ -60,36 +67,73 @@ def spy2py(lines):
     return [str(SpyProcessor.unpack_line(line)) for line in lines]
 
 
-def run_spyql(query="", options=[], data=None, runner=CliRunner(), exception=True):
-    return runner.invoke(spyql.cli.main, options + [query], input=data)
+def run_query(query, data, **kw_options):
+    bk = sys.stdin
+    sys.stdin = io.StringIO(data)
+    res = spyql.query.Query(query, **kw_options)()
+    sys.stdin = bk
+    return res
 
 
-def eq_test_nrows(query, expectation, data=None, options=[]):
+def run_cli(query="", options=[], data=None, runner=CliRunner(), exception=True):
+    res = runner.invoke(spyql.cli.main, options + [query], input=data)
+    return res
+
+
+def make_cli_options(kw_options):
+    options = []
+    for option, value in kw_options.items():
+        if option.endswith("put_options"):
+            options.extend(
+                [
+                    f"-{option[0].upper()}{opt}" + ("" if val is None else f"={val}")
+                    for opt, val in value.items()
+                ]
+            )
+        elif option == "unbuffered":
+            if value:
+                options.extend(["-u"])
+        elif option == "warning_flag":
+            options.extend([f"-W{value}"])
+        elif option == "v":
+            options.extend([f"-v{value}"])
+        else:
+            options.extend([f"--{option}"])
+    return options
+
+
+def eq_test_nrows(query, expectation, data=None, **kw_options):
     runner = CliRunner()
+    spyql.log.user_info("Running query: {}".format(query))
 
-    res = run_spyql(query + " TO json", options, data, runner)
+    options = make_cli_options(kw_options)
+
+    res = run_cli(query + " TO json", options, data, runner)
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
-    res = run_spyql(query + " TO csv", options, data, runner)
+    res = run_cli(query + " TO csv", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2csv(expectation)
     assert res.exit_code == 0
 
-    res = run_spyql(query + " TO spy", options, data, runner)
+    res = run_cli(query + " TO spy", options, data, runner)
     assert spy2py(txt_output(res.output, True)) == list_of_struct2py(expectation)
     assert res.exit_code == 0
 
-    res = run_spyql(query + " TO pretty", options, data, runner)
+    res = run_cli(query + " TO pretty", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2pretty(expectation)
     assert res.exit_code == 0
+
+    res = run_query(query + " TO memory", data, **kw_options)
+    assert res == tuple(expectation)
 
 
 def eq_test_1row(query, expectation, **kwargs):
     eq_test_nrows(query, [expectation], **kwargs)
 
 
-def exception_test(query, anexception, **kwargs):
-    res = run_spyql(query, **kwargs)
+def exception_test(query, anexception, **kw_options):
+    res = run_cli(query, make_cli_options(kw_options))
     assert res.exit_code != 0
     assert isinstance(res.exception, anexception)
 
@@ -488,8 +532,8 @@ def test_distinct():
     )
 
     # Distinct jsons
-    res = run_spyql(
-        "SELECT DISTINCT json FROM json EXPLODE json->a TO json",
+    res = run_cli(
+        "SELECT DISTINCT json FROM json EXPLODE json.a TO json",
         data=(
             '{"a": [1, 2, 2], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
             ' "four"}\n'
@@ -515,13 +559,13 @@ def test_null():
 
 def test_processors():
     # JSON input and NULLs
-    eq_test_1row("SELECT json->a FROM json", {"a": 1}, data='{"a": 1}\n')
-    eq_test_1row("SELECT json->a FROM json", {"a": NULL}, data='{"a": null}\n')
-    eq_test_1row("SELECT json->b FROM json", {"b": NULL}, data='{"a": 1}\n')
+    eq_test_1row("SELECT json.a FROM json", {"a": 1}, data='{"a": 1}\n')
+    eq_test_1row("SELECT json.a FROM json", {"a": NULL}, data='{"a": null}\n')
+    eq_test_1row("SELECT json.b FROM json", {"b": NULL}, data='{"a": 1}\n')
 
     # JSON EXPLODE
     eq_test_nrows(
-        "SELECT json->a, json->b FROM json EXPLODE json->a",
+        "SELECT json.a, json.b FROM json EXPLODE json.a",
         [
             {"a": 1, "b": "three"},
             {"a": 2, "b": "three"},
@@ -550,25 +594,25 @@ def test_processors():
         "SELECT a as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="a,b,c\n,2,3\n4,5,6\n,8,9",
-        options=["-Idelimiter=,"],
+        input_options={"delimiter": ","},
     )
     eq_test_nrows(
         "SELECT int(a) as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data="a,b,c\n,2,3\n4,5,6\noops,8,9",
-        options=["-Idelimiter=,", "-Iinfer_dtypes=False"],
+        input_options={"delimiter": ",", "infer_dtypes": False},
     )
     eq_test_nrows(
         "SELECT a as a FROM csv",
         [{"a": ""}, {"a": "4"}, {"a": ""}],
         data="a,b,c\n,2,3\n4,5,6\n,8,9",
-        options=["-Idelimiter=,", "-Iinfer_dtypes=False"],
+        input_options={"delimiter": ",", "infer_dtypes": False},
     )
     eq_test_nrows(
         "SELECT col1 as a FROM csv",
         [{"a": NULL}, {"a": 4}, {"a": NULL}],
         data=",2,3\n4,5,6\n,8,9",
-        options=["-Idelimiter=,", "-Iheader=False"],
+        input_options={"delimiter": ",", "header": False},
     )
     eq_test_nrows(
         "SELECT col1 as a, col2 as b, col3 as c FROM csv",  # type inference test
@@ -578,7 +622,7 @@ def test_processors():
             {"a": NULL, "b": NULL, "c": ""},
         ],
         data=",2,3\n4,5.0,ola\n,,",
-        options=["-Idelimiter=,", "-Iheader=False"],
+        input_options={"delimiter": ",", "header": False},
     )
     eq_test_nrows("SELECT * FROM csv", [], data="")
 
@@ -634,6 +678,75 @@ def test_processors():
     eq_test_nrows("SELECT * FROM spy", [], data="")
 
 
+def test_row_access():
+    # JSON input and NULLs
+    eq_test_1row("SELECT row.a FROM json", {"a": 1}, data='{"a": 1}\n')
+    eq_test_1row("SELECT row.a FROM json", {"a": NULL}, data='{"a": null}\n')
+    eq_test_1row("SELECT row.b FROM json", {"b": NULL}, data='{"a": 1}\n')
+
+    # JSON EXPLODE
+    eq_test_nrows(
+        "SELECT row.a, row.b FROM json EXPLODE row.a",
+        [
+            {"a": 1, "b": "three"},
+            {"a": 2, "b": "three"},
+            {"a": 3, "b": "three"},
+            {"a": 4, "b": "four"},
+        ],
+        data=(
+            '{"a": [1, 2, 3], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
+            ' "four"}\n'
+        ),
+    )
+
+    # CSV input
+    eq_test_nrows(
+        "SELECT row.a FROM csv",
+        [{"a": 1}, {"a": 4}, {"a": 7}],
+        data="a,b,c\n1,2,3\n4,5,6\n7,8,9",
+    )
+    eq_test_nrows(
+        "SELECT row.a FROM csv",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data="a,b,c\n,2,3\n4,5,6\n,8,9",
+    )
+
+    # Text input and NULLs
+    eq_test_nrows(
+        "SELECT int(row.col1) as a FROM text",
+        [{"a": 1}, {"a": 4}, {"a": 7}],
+        data="1\n4\n7",
+    )
+
+    # SPy input and NULLs
+    eq_test_nrows(
+        "SELECT row.a FROM spy",
+        [{"a": 1}, {"a": 4}, {"a": 7}],
+        data="".join(
+            [
+                SpyWriter.pack(line)
+                for line in [["a", "b", "c"], [1, 2, 3], [4, 5, 6], [7, 8, 9]]
+            ]
+        ),
+    )
+    eq_test_nrows(
+        "SELECT int(row.a) as a FROM spy",
+        [{"a": NULL}, {"a": 4}, {"a": NULL}],
+        data="".join(
+            [
+                SpyWriter.pack(line)
+                for line in [["a", "b", "c"], [NULL, 2, 3], [4, 5, 6], ["oops", 8, 9]]
+            ]
+        ),
+    )
+
+    # Python processor
+    eq_test_nrows(
+        'SELECT row.a FROM [{"a": 1, "b": 3}, {"a": 4}, {"a": 7}]',
+        [{"a": 1}, {"a": 4}, {"a": 7}],
+    )
+
+
 def test_metadata():
     eq_test_nrows(
         "SELECT cols, _values, _names, row FROM csv",
@@ -682,7 +795,7 @@ def test_metadata():
             },
         ],
         data=",2,3\n4,5,6\n,8,9",
-        options=["-Idelimiter=,", "-Iheader=False"],
+        input_options={"delimiter": ",", "header": False},
     )
     eq_test_1row(
         "SELECT cols, _values, _names, row FROM json",
@@ -690,7 +803,7 @@ def test_metadata():
             "cols": [{"a": 1}],
             "_values": [{"a": 1}],
             "_names": ["json"],
-            "row": {"json": {"a": 1}},
+            "row": {"a": 1},
         },
         data='{"a": 1}\n',
     )
@@ -736,7 +849,7 @@ def test_metadata():
 
 
 def test_custom_syntax():
-    # easy access to dic fields
+    # easy access to dic fields using ->
     eq_test_1row(
         "SELECT col1->three * 2 as six, col1->'twenty one' + 3 AS twentyfour,"
         " col1->hello->world.upper() AS caps "
@@ -745,6 +858,16 @@ def test_custom_syntax():
         "WHERE col1->three > 0 "
         "ORDER BY col1->three",
         {"six": 6, "twentyfour": 24, "caps": "HELLO WORLD"},
+    )
+
+    # easy access to dic fields using .
+    eq_test_1row(
+        "SELECT col1.three * 2 as six, col1.hello.world.upper() AS caps "
+        "FROM {'three': 3, 'twenty one': 21,"
+        " 'hello': {'world': 'hello world'}} "
+        "WHERE col1.three > 0 "
+        "ORDER BY col1.three",
+        {"six": 6, "caps": "HELLO WORLD"},
     )
 
 
@@ -760,19 +883,30 @@ def test_errors():
     exception_test("SELECT 1 TO _this_writer_does_not_exist_", SyntaxError)
     exception_test("SELECT 1 FROM [1,2,,]]", SyntaxError)
     exception_test("IMPORT _this_module_does_not_exist_ SELECT 1", ModuleNotFoundError)
-    exception_test("SELECT 1 TO csv", TypeError, options=["-Ounexisting_option=1"])
-    exception_test("SELECT 1 TO plot", TypeError, options=["-Ounexisting_option=1"])
-    exception_test("SELECT 1 FROM csv", TypeError, options=["-Iunexisting_option=1"])
-    exception_test("SELECT 1 FROM spy", TypeError, options=["-Iunexisting_option=1"])
-    exception_test("SELECT 1 TO csv", TypeError, options=["-Odelimiter=bad"])
-    exception_test("SELECT 1 FROM csv", TypeError, options=["-Idelimiter=bad"])
-    exception_test("SELECT 1 TO csv", SystemExit, options=["-Ola"])
-    exception_test("SELECT int('abcde')", ValueError, options=["-Werror"])
-    exception_test("SELECT float('')", ValueError, options=["-Werror"])
-    exception_test("SELECT float('')", ValueError, options=["-Werror"])
+    exception_test(
+        "SELECT 1 TO csv", TypeError, output_options={"nonexisting_option": 1}
+    )
+    exception_test(
+        "SELECT 1 TO plot", TypeError, output_options={"nonexisting_option": 1}
+    )
+    exception_test(
+        "SELECT 1 FROM csv", TypeError, input_options={"nonexisting_option": 1}
+    )
+    exception_test(
+        "SELECT 1 FROM spy", TypeError, input_options={"nonexisting_option": 1}
+    )
+    exception_test("SELECT 1 TO csv", TypeError, output_options={"delimiter": "bad"})
+    exception_test("SELECT 1 FROM csv", TypeError, input_options={"delimiter": "bad"})
+    exception_test("SELECT 1 TO csv", SystemExit, output_options={"la": None})
+    exception_test("SELECT int('abcde')", ValueError, warning_flag="error")
+    exception_test("SELECT float('')", ValueError, warning_flag="error")
+    exception_test("SELECT float('')", ValueError, warning_flag="error")
     exception_test("SELECT DISTINCT count_agg(1)", SyntaxError)
     exception_test("SELECT count_agg(1) GROUP BY 1", SyntaxError)
     exception_test("SELECT 1 FROM range(3) WHERE max_agg(col1) > 0", SyntaxError)
+    exception_test(
+        "SELECT row.a FROM [{'a':1},{'a':2},{'a':3}] EXPLODE row.a", TypeError
+    )
 
 
 def test_sql_output():
@@ -805,7 +939,7 @@ def test_sql_output():
         TO sql
         """
 
-    res = run_spyql(query, ["-Otable=test1", "-Ochunk_size=2"])
+    res = run_cli(query, ["-Otable=test1", "-Ochunk_size=2"])
     assert res.exit_code == 0
     for insert_stat in res.output.splitlines():
         # run inserts from spyql in sqlite
@@ -823,7 +957,7 @@ def test_sql_output():
 
 def test_plot_output():
     # just checking that it does not break...
-    res = run_spyql("SELECT col1 as abc, col1*2 FROM range(20) TO plot")
+    res = run_cli("SELECT col1 as abc, col1*2 FROM range(20) TO plot")
     assert res.exit_code == 0
-    res = run_spyql("SELECT col1 FROM [1,2,NULL,3,None,4] TO plot")
+    res = run_cli("SELECT col1 FROM [1,2,NULL,3,None,4] TO plot")
     assert res.exit_code == 0

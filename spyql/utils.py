@@ -1,4 +1,5 @@
 import re
+import os
 
 
 def quote_ifstr(s):
@@ -27,8 +28,30 @@ def try2eval(val, globals={}, locals={}):
 
 
 def isiterable(x):
-    """Returns True if `x` is iterable that is not a string and is not null"""
+    """Returns True if `x` is iterable that is not a string or dict and is not null"""
     from spyql.nulltype import Null
     from collections.abc import Iterable
 
-    return isinstance(x, Iterable) and x is not Null and not isinstance(x, str)
+    return (
+        isinstance(x, Iterable)
+        and x is not Null
+        and not isinstance(x, str)
+        and not isinstance(x, dict)
+    )
+
+
+def is_row_collapsable(row, colnames):
+    """
+    Returns True if `row` only has a single column of type dict with a default name.
+    In this case, a row (of type dict) can take the value of the first column.
+    """
+    return (
+        len(row) == 1
+        and isinstance(row[0], dict)
+        and colnames[0] in {"col1", "json", "row"}
+    )
+
+
+def join_paths(x, *args):
+    """convienience function for os.path.join"""
+    return os.path.join(x, *args)

@@ -151,3 +151,7 @@ texinfo_documents = [
         "Data",
     ),
 ]
+
+
+# also include __init__ constructor in the docs
+autoclass_content = "both"

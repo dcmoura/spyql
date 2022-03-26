@@ -141,6 +141,7 @@ We added additional syntax for making querying easier:
 | Python | SpySQL shortcut| Purpose |
 | ------ | -------------- | ------- |
 | `json['hello']['planet earth']` | `json->hello->'planet earth'` | Easy access of elements in  dicts (e.g. JSONs) |
+| `json['hello']` | `json.hello` | Easy access of elements in  dicts (e.g. JSONs) |
 
 
 ### NULL datatype
@@ -154,7 +155,7 @@ Python's `None` generates exceptions when making operations on missing data, bre
 | `int('')`   |  `ValueError` | `NULL` | yes |
 | `int('abc')` | `ValueError` | `NULL` | yes |
 
-The above dictionary key access only returns `NULL` if the dict is an instance of `NullSafeDict`. SpyQL adds `NullSafeDict`, which extends python's native `dict`. JSONs are automatically loaded as `NullSafeDict`. Unless you are creating dictionaries on the fly you do not need to worry about this.
+The above dictionary key access only returns `NULL` if the dict is an instance of `qdict`. SpyQL adds `qdict`, which extends python's native `dict`. JSONs are automatically loaded as `qdict`. Unless you are creating dictionaries on the fly you do not need to worry about this.
 
 ## Importing python modules and user-defined functions
 
@@ -243,7 +244,7 @@ id, name, price
 ### Python iterator/list/comprehension to JSON
 
 ```sql
-SELECT 10 * cos(col1 * ((pi * 4) / 90)
+SELECT 10 * cos(col1 * ((pi * 4) / 90))
 FROM range(80)
 TO json
 ```
