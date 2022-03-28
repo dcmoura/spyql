@@ -11,4 +11,5 @@ Contributors
 ------------
 
 * Diogo Recharte <diogorecharte@gmail.com>
-
+* Ricardo Chaves <github.com/ricardocchaves>
+* Yash Bonde <github.com/yashbonde>
