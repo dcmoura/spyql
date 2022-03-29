@@ -76,6 +76,17 @@ Output:
 {"message": "Hello world", "three": 3}
 ```
 
+SPyQL supports reading/writing json data using [orjson](https://github.com/ijl/orjson), a fast, correct JSON library for Python. To use orjson, you need to [install it](https://github.com/ijl/orjson#install) separately. Then, test it, run the last again changing `json` to `orjson`:
+
+```sh
+spyql "SELECT 'Hello world' as message, 1+2 as three TO orjson"
+```
+Output:
+```json
+{"message":"Hello world","three":3}
+```
+
+
 ## Principles
 
 Right now, the focus is on building a command-line tool that follows these core principles:
@@ -90,7 +101,7 @@ Right now, the focus is on building a command-line tool that follows these core 
 
 ```sql
 [ IMPORT python_module [ AS identifier ] [, ...] ]
-SELECT [ DISTINCT | PARTIALS ] 
+SELECT [ DISTINCT | PARTIALS ]
     [ * | python_expression [ AS output_column_name ] [, ...] ]
     [ FROM csv | spy | text | python_expression | orjson | json [ EXPLODE path ] ]
     [ WHERE python_expression ]
@@ -99,7 +110,7 @@ SELECT [ DISTINCT | PARTIALS ]
         [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
     [ LIMIT row_count ]
     [ OFFSET num_rows_to_skip ]
-    [ TO csv | json | spy | sql | pretty | plot ]
+    [ TO csv | orjson | json | spy | sql | pretty | plot ]
 ```
 
 
@@ -117,7 +128,7 @@ In SpyQL:
 
 | Operation | PostgreSQL | SpyQL |
 | --------- | ---------- | ----- |
-| Sum all values of a column | `SELECT sum(col_name)` | `SELECT sum_agg(col_name)` | 
+| Sum all values of a column | `SELECT sum(col_name)` | `SELECT sum_agg(col_name)` |
 | Sum an array | `SELECT sum(a) FROM (SELECT unnest(array[1,2,3]) AS a) AS t` | `SELECT sum([1,2,3])` |
 
 
@@ -290,11 +301,11 @@ ORDER BY 1
 
 ### Partial aggregations
 
-Calculating the cumulative sum of a variable using the `PARTIALS` modifier. Also demoing the lag aggregator. 
+Calculating the cumulative sum of a variable using the `PARTIALS` modifier. Also demoing the lag aggregator.
 
 ```sql
-SELECT PARTIALS 
-    json->new_entries, 
+SELECT PARTIALS
+    json->new_entries,
     sum_agg(json->new_entries) AS cum_new_entries,
     lag(json->new_entries) AS prev_entries
 FROM json
@@ -322,7 +333,7 @@ Output:
 {"new_entries" : 100,  "cum_new_entries" : 140, "prev_entries": null}
 ```
 
-If `PARTIALS`was omitted the result would be equivalent to the last output row. 
+If `PARTIALS`was omitted the result would be equivalent to the last output row.
 
 ### Distinct rows
 
@@ -401,11 +412,11 @@ spyql --unbuffered "
 	SELECT PARTIALS
         count_agg(*) AS running_count,
 		sum_agg(value) AS running_sum,
-		min_agg(value) AS min_so_far, 
+		min_agg(value) AS min_so_far,
         value AS current_value
 	FROM json
 	TO csv
-" 
+"
 ```
 
 

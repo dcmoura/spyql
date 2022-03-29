@@ -82,7 +82,7 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
             [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] ]
         [ LIMIT row_count ]
         [ OFFSET num_rows_to_skip ]
-        [ TO csv | json | spy | sql | pretty | plot ]
+        [ TO csv | orjson | json | spy | sql | pretty | plot ]
     """
 
     out = Query(

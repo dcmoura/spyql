@@ -112,6 +112,10 @@ def eq_test_nrows(query, expectation, data=None, **kw_options):
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
+    res = run_cli(query + " TO orjson", options, data, runner)
+    assert json_output(res.output) == expectation
+    assert res.exit_code == 0
+
     res = run_cli(query + " TO csv", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2csv(expectation)
     assert res.exit_code == 0
