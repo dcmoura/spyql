@@ -19,6 +19,7 @@ requirements = [
 test_requirements = [
     "pytest>=3",
     "numpy",
+    "orjson",
 ]
 
 setup(

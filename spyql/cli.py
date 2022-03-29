@@ -75,7 +75,7 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
     [ IMPORT python_module [ AS identifier ] [, ...] ]
     SELECT [ DISTINCT | PARTIALS ]
         [ * | python_expression [ AS output_column_name ] [, ...] ]
-        [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
+        [ FROM csv | spy | text | python_expression | orjson | json [ EXPLODE path ] ]
         [ WHERE python_expression ]
         [ GROUP BY output_column_number | python_expression  [, ...] ]
         [ ORDER BY output_column_number | python_expression

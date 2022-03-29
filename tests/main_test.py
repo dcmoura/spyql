@@ -559,25 +559,38 @@ def test_null():
 
 def test_processors():
     # JSON input and NULLs
-    eq_test_1row("SELECT json.a FROM json", {"a": 1}, data='{"a": 1}\n')
-    eq_test_1row("SELECT json.a FROM json", {"a": NULL}, data='{"a": null}\n')
-    eq_test_1row("SELECT json.b FROM json", {"b": NULL}, data='{"a": 1}\n')
+    for jsonproc in ["json", "orjson"]:
+        eq_test_1row(
+            f"SELECT json.a FROM {jsonproc}",
+            {"a": 1},
+            data='{"a": 1}\n',
+        )
+        eq_test_1row(
+            f"SELECT json.a FROM {jsonproc}",
+            {"a": NULL},
+            data='{"a": null}\n',
+        )
+        eq_test_1row(
+            f"SELECT json.b FROM {jsonproc}",
+            {"b": NULL},
+            data='{"a": 1}\n',
+        )
 
-    # JSON EXPLODE
-    eq_test_nrows(
-        "SELECT json.a, json.b FROM json EXPLODE json.a",
-        [
-            {"a": 1, "b": "three"},
-            {"a": 2, "b": "three"},
-            {"a": 3, "b": "three"},
-            {"a": 4, "b": "four"},
-        ],
-        data=(
-            '{"a": [1, 2, 3], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
-            ' "four"}\n'
-        ),
-    )
-    eq_test_nrows("SELECT * FROM json", [], data="")
+        # JSON EXPLODE
+        eq_test_nrows(
+            f"SELECT json.a, json.b FROM {jsonproc} EXPLODE json.a",
+            [
+                {"a": 1, "b": "three"},
+                {"a": 2, "b": "three"},
+                {"a": 3, "b": "three"},
+                {"a": 4, "b": "four"},
+            ],
+            data=(
+                '{"a": [1, 2, 3], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
+                ' "four"}\n'
+            ),
+        )
+        eq_test_nrows(f"SELECT * FROM {jsonproc}", [], data="")
 
     # CSV input and NULLs
     eq_test_nrows(

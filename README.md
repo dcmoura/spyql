@@ -92,7 +92,7 @@ Right now, the focus is on building a command-line tool that follows these core 
 [ IMPORT python_module [ AS identifier ] [, ...] ]
 SELECT [ DISTINCT | PARTIALS ] 
     [ * | python_expression [ AS output_column_name ] [, ...] ]
-    [ FROM csv | spy | text | python_expression | json [ EXPLODE path ] ]
+    [ FROM csv | spy | text | python_expression | orjson | json [ EXPLODE path ] ]
     [ WHERE python_expression ]
     [ GROUP BY output_column_number | python_expression  [, ...] ]
     [ ORDER BY output_column_number | python_expression

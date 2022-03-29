@@ -1,5 +1,4 @@
 import csv
-import json as jsonlib
 import pickle
 import io
 import sys
@@ -14,7 +13,7 @@ from spyql.output_handler import OutputHandler
 from spyql.query_result import QueryResult
 import spyql.nulltype
 import spyql.sqlfuncs
-import spyql.qdict
+from spyql.qdict import qdict
 import spyql.log
 from spyql.utils import make_str_valid_varname, isiterable, is_row_collapsable
 import spyql.agg
@@ -65,6 +64,7 @@ class Processor:
     def input_processors():
         return {
             "JSON": JSONProcessor,
+            "ORJSON": ORJSONProcessor,
             "CSV": CSVProcessor,
             "TEXT": TextProcessor,
             "SPY": SpyProcessor,
@@ -508,21 +508,47 @@ class SpyProcessor(Processor):
 
 class JSONProcessor(Processor):
     def __init__(self, prs, strings, path=None, **options):
+        import json
+
         super().__init__(prs, strings, path)
-        jsonlib.loads('{"a": 1}', **options)  # test options
+        json.loads('{"a": 1}', **options)  # test options
         self.options = options
+        self.input_col_names = ["json"]
+
+        # this might not be the most efficient way of converting None -> NULL, look at:
+        # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
+        self.decoder = json.JSONDecoder(
+            object_pairs_hook=qdict,
+            **options,
+        )
+
+    # 1 row = 1 json
+    def get_input_iterator(self):
+        return ([self.decoder.decode(line)] for line in self.input_file)
+
+
+class ORJSONProcessor(Processor):
+    def __init__(self, prs, strings, path=None, **options):
+        super().__init__(prs, strings, path)
+        try:
+            import orjson
+        except ModuleNotFoundError as e:
+            # orjson must be installed separately
+            spyql.log.user_error(
+                "`orjson` module not found. You might need to install it",
+                e,
+                "pip3 install orjson",
+            )
+        orjson.loads('{"a": 1}', **options)  # test options (should be empty...)
         self.input_col_names = ["json"]
 
     # 1 row = 1 json
     def get_input_iterator(self):
+        import orjson
+
         # this might not be the most efficient way of converting None -> NULL, look at:
         # https://stackoverflow.com/questions/27695901/python-jsondecoder-custom-translation-of-null-type
-        decoder = jsonlib.JSONDecoder(
-            object_pairs_hook=spyql.qdict.qdict,
-            **self.options,
-        )
-
-        return ([decoder.decode(line)] for line in self.input_file)
+        return ([qdict(orjson.loads(line))] for line in self.input_file)
 
 
 # CSV
