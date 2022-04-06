@@ -2,6 +2,12 @@
 History
 =======
 
+0.6.0 (2022-04-06)
+------------------
+* Added ORJSON processor for faster queries on JSON data
+* Added ORJSON writer for faster JSON output
+* Improved efficiency of the JSON writer (based on the standard library)
+
 
 0.5.0 (2022-03-28)
 ------------------
