@@ -1,5 +1,4 @@
 import csv
-import json as jsonlib
 import pickle
 from tabulate import tabulate  # https://pypi.org/project/tabulate/
 import asciichartpy as chart
@@ -18,7 +17,8 @@ class Writer:
     @staticmethod
     def output_writers():
         return {
-            "JSON": SimpleJSONWriter,
+            "JSON": JSONWriter,
+            "ORJSON": ORJSONWriter,
             "CSV": CSVWriter,
             "MEMORY": MemoryWriter,
             "SPY": SpyWriter,
@@ -103,23 +103,54 @@ class CSVWriter(Writer):
         self.csv.writerows(rows)
 
 
-class SimpleJSONWriter(Writer):
-    def __init__(self, path=None, unbuffered=False, **options):
+def json_default(x):
+    return None if x is NULL else str(x)
+
+
+class JSONWriter(Writer):
+    def __init__(self, path=None, unbuffered=False, default=json_default, **options):
+        import json
+
         super().__init__(path, unbuffered)
-        jsonlib.dumps({"a": 1}, **options)  # test options
-        self.options = options
+        self.encoder = json.JSONEncoder(default=default, **options)
+        self.encoder.encode({"a": 1})  # test options
 
     def writerow(self, row):
-        self.outputfile.write(self.makerow(row) + "\n")
-
-    def makerow(self, row):
         obj = (
             row[0]
             if is_row_collapsable(row, self.header)
             else dict(zip(self.header, row))
         )
-        return jsonlib.dumps(
-            obj, default=lambda x: None if x is NULL else str(x), **self.options
+        self.outputfile.write(self.encoder.encode(obj) + "\n")
+
+
+class ORJSONWriter(Writer):
+    def __init__(self, path=None, unbuffered=False, default=json_default, option=0):
+        super().__init__(path, unbuffered)
+        try:
+            # currently the only supported JSON external library is orjson,
+            # which must be installed separately (it is not a dependency)
+            import orjson
+
+            self.orjson = orjson
+        except ModuleNotFoundError as e:
+            user_error(
+                "`orjson` module not found. You might need to install it",
+                e,
+                "pip3 install orjson",
+            )
+        self.default = default
+        self.option = option | orjson.OPT_APPEND_NEWLINE
+
+    def writerow(self, row):
+        # TODO optimization: only call `is_row_collapsable` in the 1st row?
+        obj = (
+            row[0]
+            if is_row_collapsable(row, self.header)
+            else dict(zip(self.header, row))
+        )
+        self.outputfile.buffer.write(
+            self.orjson.dumps(obj, default=self.default, option=self.option)
         )
 
 
