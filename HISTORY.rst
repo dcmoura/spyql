@@ -7,6 +7,7 @@ History
 * Added ORJSON processor for faster queries on JSON data
 * Added ORJSON writer for faster JSON output
 * Improved efficiency of the JSON writer (based on the standard library)
+* Added JSON querying benchmark
 
 
 0.5.0 (2022-03-28)
@@ -17,6 +18,7 @@ History
 * Added access by attribute on dicts
 * Changed row metadata to allow unified access to different input formats
 * Renamed NullSafeDict to qdict
+
 
 0.4.1 (2022-01-31)
 ------------------

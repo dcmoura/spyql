@@ -28,6 +28,7 @@ TO json
 
 SQL provides the structure of the query, while Python is used to define expressions, bringing along a vast ecosystem of packages.
 
+SpyQL is blazingly fast and memmory efficient. Take a look at the [benchmarks with GB-size JSON data](notebooks/json_benchmark.ipynb) (best viewed on Colab).
 
 ## SpyQL command-line tool
 
@@ -76,7 +77,7 @@ Output:
 {"message": "Hello world", "three": 3}
 ```
 
-SPyQL supports reading/writing json data using [orjson](https://github.com/ijl/orjson), a fast, correct JSON library for Python. To use orjson, you need to [install it](https://github.com/ijl/orjson#install) separately. Then, test it, run the last again changing `json` to `orjson`:
+SPyQL supports reading/writing json data using [orjson](https://github.com/ijl/orjson), a fast, correct JSON library for Python. To use orjson, you need to [install it](https://github.com/ijl/orjson#install) separately. Then, test it by running the last example again, replacing `json` by `orjson`:
 
 ```sh
 spyql "SELECT 'Hello world' as message, 1+2 as three TO orjson"
@@ -457,30 +458,17 @@ spyql "
 "
 ```
 
-### Plotting with gnuplot
-
-To the terminal:
-```sh
-spyql "
-    SELECT col1
-    FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]
-    TO csv
-" |
-sed 1d |
-feedgnuplot --terminal 'dumb 80,30' --exit --lines
-```
-
-To GUI:
+### GUI Plotting with [matplotcli](https://github.com/dcmoura/matplotcli)
 
 ```sh
 spyql "
-    SELECT col1
+    SELECT col1 AS y
     FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]
-    TO csv
-" |
-sed 1d |
-feedgnuplot --lines --points --exit
+    TO json
+" | plt "plot(y)"
 ```
+
+
 
 -----
 
