@@ -458,30 +458,17 @@ spyql "
 "
 ```
 
-### Plotting with gnuplot
-
-To the terminal:
-```sh
-spyql "
-    SELECT col1
-    FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]
-    TO csv
-" |
-sed 1d |
-feedgnuplot --terminal 'dumb 80,30' --exit --lines
-```
-
-To GUI:
+### GUI Plotting with [matplotcli](https://github.com/dcmoura/matplotcli)
 
 ```sh
 spyql "
-    SELECT col1
+    SELECT col1 AS y
     FROM [10 * cos(i * ((pi * 4) / 90)) for i in range(80)]
-    TO csv
-" |
-sed 1d |
-feedgnuplot --lines --points --exit
+    TO json
+" | plt "plot(y)"
 ```
+
+
 
 -----
 
