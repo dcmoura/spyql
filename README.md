@@ -123,7 +123,7 @@ In SpyQL:
 * the `AS` keyword must precede a column alias definition (it is not optional as in SQL)
 * you can always access the nth input column by using the default column names `colN` (e.g. `col1` for the first column)
 * currently only a small subset of SQL is supported, namely `SELECT` statements without: sub-queries, joins, set operations, etc (check the [Syntax](#syntax) section)
-* sub-queries are achieved by piping (see the [Command line examples](#command line examples)
+* sub-queries are achieved by piping (see the [Command line examples](#command-line-examples)
  section)
 * aggregation functions have the suffix `_agg` to avoid conflicts with python's built-in functions:
 
