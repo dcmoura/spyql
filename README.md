@@ -28,7 +28,7 @@ TO json
 
 SQL provides the structure of the query, while Python is used to define expressions, bringing along a vast ecosystem of packages.
 
-SpyQL is blazingly fast and memory efficient. Take a look at the [benchmarks with GB-size JSON data](notebooks/json_benchmark.ipynb) (best viewed on Colab).
+SpyQL is fast and memory efficient. Take a look at the [benchmarks with GB-size JSON data](notebooks/json_benchmark.ipynb) (best viewed on Colab).
 
 ## SpyQL command-line tool
 
