@@ -39,7 +39,7 @@ setup(
         "Topic :: Text Processing",
         "Topic :: Utilities",
     ],
-    description="SpyQL: SQL with Python in the midle",
+    description="SPyQL: SQL with Python in the midle",
     entry_points={
         "console_scripts": [
             "spyql=spyql.cli:main",

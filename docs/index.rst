@@ -1,13 +1,21 @@
-Welcome to SpyQL's documentation!
-======================================
+SQL with Python in the middle
+================================================
+
+Welcome to SPyQL's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
-   readmemd
-   installation   
+   readme
+   distinctive
+   installation
+   hello
+   queries
+   differences
+   reference
+   import
+   recipes
    contributing
    authors
    history
-
+   readmemd
