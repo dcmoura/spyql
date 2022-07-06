@@ -44,6 +44,14 @@ spyql.output\_handler module
    :undoc-members:
    :show-inheritance:
 
+spyql.parser module
+-------------------
+
+.. automodule:: spyql.parser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 spyql.processor module
 ----------------------
 
@@ -52,10 +60,50 @@ spyql.processor module
    :undoc-members:
    :show-inheritance:
 
+spyql.prof module
+-----------------
+
+.. automodule:: spyql.prof
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+spyql.qdict module
+------------------
+
+.. automodule:: spyql.qdict
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+spyql.query module
+------------------
+
+.. automodule:: spyql.query
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+spyql.query\_result module
+--------------------------
+
+.. automodule:: spyql.query_result
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 spyql.quotes\_handler module
 ----------------------------
 
 .. automodule:: spyql.quotes_handler
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+spyql.sqlfuncs module
+---------------------
+
+.. automodule:: spyql.sqlfuncs
    :members:
    :undoc-members:
    :show-inheritance:

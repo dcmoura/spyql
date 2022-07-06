@@ -19,6 +19,7 @@ requirements = [
 test_requirements = [
     "pytest>=3",
     "numpy",
+    "orjson",
 ]
 
 setup(
@@ -60,6 +61,6 @@ setup(
         "Documentation": "https://spyql.readthedocs.io",
         "Source": "https://github.com/dcmoura/spyql",
     },
-    version="0.2.0",
+    version="0.6.0",
     zip_safe=False,
 )
