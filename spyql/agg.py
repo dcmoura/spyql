@@ -117,7 +117,7 @@ def set_agg(val, respect_nulls=True):
     Collects all distinct input values into a set.
     Filters out NULLs when `respect_nulls` is `False`.
     """
-    return _agg_op(operator.or_, {val} if respect_nulls or val is not Null else Null)
+    return _agg_op(operator.or_, {val} if respect_nulls or val is not Null else set())
 
 
 def first_agg(val, respect_nulls=True):
