@@ -406,6 +406,11 @@ def test_agg():
             False,
         ),
         ("sorted(list(set_agg(col1, False)))", lambda y: sorted(list(set(y))), True),
+        (
+            "dict_agg(str(col1), row_number)",
+            lambda y: {str(k): v + 1 for v, k in enumerate(y) if k is not NULL},
+            False,
+        ),
         ("first_agg(col1)", lambda x: x[0] if x else NULL, False),
         ("first_agg(col1, False)", lambda x: x[0] if x else NULL, True),
         ("last_agg(col1)", lambda x: x[-1] if x else NULL, False),
@@ -445,10 +450,13 @@ def test_agg():
                 f"SELECT {sql_func} as {col_name} FROM {tst_list}",
                 {col_name: tst_func(lst)},
             )
-            eq_test_1row(
-                f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
-                {"a": tst_func(lst), "b": tst_func(lst) * 2},
-            )
+            if not sql_func.startswith(
+                "dict_agg"
+            ):  # dicts do not suport the * operator
+                eq_test_1row(
+                    f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
+                    {"a": tst_func(lst), "b": tst_func(lst) * 2},
+                )
 
     # this would return a row with 0 in standard SQL, but in SpyQL returns no rows
     eq_test_nrows("SELECT count(*) FROM []", [])
