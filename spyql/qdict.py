@@ -89,3 +89,8 @@ class qdict(dict):
         # TODO check if this is sufficienly efficient...
         # This only needs to guarantee that two equivalent dicts have the same hash
         return hash(json.dumps(self, default=str, sort_keys=True))
+
+    def updatef(self, another_dict):
+        # same as update but returns the dict
+        self.update(another_dict)
+        return self
