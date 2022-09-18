@@ -127,7 +127,10 @@ def dict_agg(key, val):
     Key must be unique and not null (null keys are discarded).
     In case of duplicated keys, the value returned is the last seen.
     """
-    return _agg_op(operator.or_, qdict({key: val} if key is not Null else {}))
+    return _agg_op(
+        lambda a_dict, an_entry: a_dict.updatef(an_entry),
+        qdict({key: val} if key is not Null else {}),
+    )
 
 
 def first_agg(val, respect_nulls=True):
