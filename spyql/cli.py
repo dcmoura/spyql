@@ -39,6 +39,17 @@ def parse_options(ctx, param, options):
     ),
 )
 @click.option(
+    "-J",
+    "json_obj_files",
+    type=click.UNPROCESSED,
+    callback=parse_options,
+    multiple=True,
+    help=(
+        "Loads a JSON with a single object into memory 'var_name=file_name'. Example:"
+        " -Jnames=names.json"
+    ),
+)
+@click.option(
     "--unbuffered",
     "-u",
     is_flag=True,
@@ -66,7 +77,9 @@ def parse_options(ctx, param, options):
     ),
 )
 @click.version_option(version=spyql.__version__)
-def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
+def main(
+    query, warning_flag, verbose, unbuffered, input_opt, output_opt, json_obj_files
+):
     """
     Tool to run a SpyQL QUERY over text data.
     For more info visit: https://github.com/dcmoura/spyql
@@ -89,6 +102,7 @@ def main(query, warning_flag, verbose, unbuffered, input_opt, output_opt):
         query,
         input_opt,
         output_opt,
+        json_obj_files,
         unbuffered,
         warning_flag,
         verbose,

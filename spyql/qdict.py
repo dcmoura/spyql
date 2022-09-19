@@ -94,3 +94,19 @@ class qdict(dict):
         # same as update but returns the dict
         self.update(another_dict)
         return self
+
+
+class str_qdict(qdict):
+    def __getitem__(self, key):
+        if key is NULL:
+            return NULL
+        return super().__getitem__(str(key))
+
+    def __contains__(self, key):
+        if key is NULL:
+            return False
+        return super().__contains__(str(key))
+
+    ## implement if needed:
+    # def __delitem__(self, key):
+    # def __setitem__(self, key, val):
