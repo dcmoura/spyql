@@ -34,6 +34,7 @@ class Query:
         query: str,
         input_options: dict = {},
         output_options: dict = {},
+        json_obj_files: dict = {},
         unbuffered=False,
         warning_flag="default",
         verbose=0,
@@ -49,6 +50,9 @@ class Query:
         :type input_options: dict, optional
         :param output_options: options to be passed to the output writer.
             e.g. ``{"delimiter": ";", "header": False}``
+        :type output_options: dict, optional
+        :param output_options: JSON objects to load into memory.
+            e.g. ``{"names": "names.json", "colors": "warm_colors.json"}``
         :type output_options: dict, optional
         :param unbuffered: forces output to be unbuffered.
         :type unbuffered: bool, optional
@@ -71,6 +75,7 @@ class Query:
         self.parsed, self.strings = parse(query, default_to_clause)
         self.output_options = output_options
         self.input_options = input_options
+        self.json_obj_files = json_obj_files
         self.unbuffered = unbuffered
         self.__stats = None
 
@@ -79,6 +84,23 @@ class Query:
 
     def __repr__(self) -> str:
         return f'Query("{self.query}")'
+
+    def _load_json_objs(self):
+        import json
+        from spyql.qdict import str_qdict
+
+        objs = {}
+        for varname, filename in self.json_obj_files.items():
+            with open(filename, "r") as f:
+                try:
+                    objs[varname] = str_qdict(json.loads(f.read()))
+                except Exception as e:
+                    raise ValueError(
+                        "Error decoding JSON file: "
+                        + str(e)
+                        + "; expected a JSON file with a single object"
+                    )
+        return objs
 
     def __call__(self, **kwargs):
         """
@@ -89,6 +111,10 @@ class Query:
         processor = None
         result = None
         self.__stats = None
+
+        user_query_vars = self._load_json_objs()  # json objects are loaded as variables
+        user_query_vars.update(kwargs)  # key-value arguments are loaded as variables
+
         try:
             # make the processor
             processor = Processor.make_processor(
@@ -98,7 +124,7 @@ class Query:
             )
             result, self.__stats = processor.go(
                 output_options=self.output_options,
-                user_query_vars=kwargs,
+                user_query_vars=user_query_vars,
             )
         finally:
             # makes sure files are closed

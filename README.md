@@ -343,6 +343,7 @@ FROM csv
 ```
 
 
+
 ## Command line examples
 
 To run the following examples, type `Ctrl-x Ctrl-e` on you terminal. This will open your default editor (emacs/vim). Paste the code of one of the examples, save and exit.
@@ -432,6 +433,55 @@ spyql "
 	TO spy" |
 spyql "SELECT full_name, full_name.upper() FROM spy"
 ```
+
+
+### (Equi) Joins
+
+It is possible to make simple (LEFT) JOIN operations based on dictionary lookups.
+
+Given `numbers.json`:
+```json
+{
+	"1": "One",
+	"2": "Two",
+	"3": "Three"
+}
+```
+
+Query:
+```sh
+spyql -Jnums=numbers.json "
+	SELECT nums[col1] as res
+	FROM [3,4,1,1]
+	TO json"
+```
+
+Output:
+
+```json
+{"res": "Three"}
+{"res": null}
+{"res": "One"}
+{"res": "One"}
+```
+
+If you want a INNER JOIN instead of a LEFT JOIN, you can add a criteria to the where clause, e.g.:
+
+```sql
+SELECT nums[col1] as res
+FROM [3,4,1,1]
+WHERE col1 in nums
+TO json
+```
+
+Output:
+
+```json
+{"res": "Three"}
+{"res": "One"}
+{"res": "One"}
+```
+
 
 ### Queries over APIs
 
