@@ -5,7 +5,7 @@ name: Run tests
 
 on:
   push:
-    branches: [ "master", "gh-actions" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
