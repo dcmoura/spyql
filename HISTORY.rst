@@ -3,6 +3,11 @@ History
 =======
 
 
+0.7.1 (2022-10-10)
+------------------
+* Tweaked JSON loading (via -J) to support any valid JSON file
+
+
 0.7.0 (2022-10-08)
 ------------------
 * Added support to key-value lookup (equi joins)
