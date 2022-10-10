@@ -91,15 +91,16 @@ class Query:
 
         objs = {}
         for varname, filename in self.json_obj_files.items():
-            with open(filename, "r") as f:
-                try:
-                    objs[varname] = str_qdict(json.loads(f.read()))
-                except Exception as e:
-                    raise ValueError(
-                        "Error decoding JSON file: "
-                        + str(e)
-                        + "; expected a JSON file with a single object"
-                    )
+            try:
+                with open(filename, "r") as f:
+                    try:
+                        objs[varname] = json.loads(
+                            f.read(), object_pairs_hook=str_qdict
+                        )
+                    except Exception as e:
+                        spyql.log.user_error(f"Error decoding JSON file", e)
+            except FileNotFoundError as e:
+                spyql.log.user_error(f"JSON file not found: {filename}", e)
         return objs
 
     def __call__(self, **kwargs):

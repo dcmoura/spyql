@@ -45,7 +45,7 @@ def parse_options(ctx, param, options):
     callback=parse_options,
     multiple=True,
     help=(
-        "Loads a JSON with a single object into memory 'var_name=file_name'. Example:"
+        "Loads a JSON file into memory 'var_name=file_name'. Example:"
         " -Jnames=names.json"
     ),
 )

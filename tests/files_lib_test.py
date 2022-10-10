@@ -228,6 +228,13 @@ def test_equi_join():
         assert True
     os.remove(kv_fpath)
 
+    # array of scalars
+    kv_fpath = make_json([[10, 20, 30]], "nums.json")
+    out = Query("SELECT nums[1] AS a", json_obj_files={"nums": kv_fpath})()
+    expectation = ({"a": 20},)
+    assert out == expectation
+    os.remove(kv_fpath)
+
 
 def test_globals():
     # accessing `os`` module and `raw_data` via `globals()`
