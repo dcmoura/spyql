@@ -61,6 +61,6 @@ setup(
         "Documentation": "https://spyql.readthedocs.io",
         "Source": "https://github.com/dcmoura/spyql",
     },
-    version="0.7.1",
+    version="0.8.0",
     zip_safe=False,
 )
