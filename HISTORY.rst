@@ -3,6 +3,11 @@ History
 =======
 
 
+0.8.0 (2022-10-18)
+------------------
+* Added universal access to columns/fields via dot operator 
+
+
 0.7.1 (2022-10-10)
 ------------------
 * Tweaked JSON loading (via -J) to support any valid JSON file
