@@ -8,6 +8,7 @@
 
 import operator
 from spyql.nulltype import Null
+from spyql.qdict import qdict
 
 
 def _init_aggs():
@@ -117,7 +118,19 @@ def set_agg(val, respect_nulls=True):
     Collects all distinct input values into a set.
     Filters out NULLs when `respect_nulls` is `False`.
     """
-    return _agg_op(operator.or_, {val} if respect_nulls or val is not Null else Null)
+    return _agg_op(operator.or_, {val} if respect_nulls or val is not Null else set())
+
+
+def dict_agg(key, val):
+    """
+    Collects key-value pairs into a dict.
+    Key must be unique and not null (null keys are discarded).
+    In case of duplicated keys, the value returned is the last seen.
+    """
+    return _agg_op(
+        lambda a_dict, an_entry: a_dict.updatef(an_entry),
+        qdict({key: val} if key is not Null else {}),
+    )
 
 
 def first_agg(val, respect_nulls=True):

@@ -406,6 +406,11 @@ def test_agg():
             False,
         ),
         ("sorted(list(set_agg(col1, False)))", lambda y: sorted(list(set(y))), True),
+        (
+            "dict_agg(str(col1), row_number)",
+            lambda y: {str(k): v + 1 for v, k in enumerate(y) if k is not NULL},
+            False,
+        ),
         ("first_agg(col1)", lambda x: x[0] if x else NULL, False),
         ("first_agg(col1, False)", lambda x: x[0] if x else NULL, True),
         ("last_agg(col1)", lambda x: x[-1] if x else NULL, False),
@@ -445,10 +450,13 @@ def test_agg():
                 f"SELECT {sql_func} as {col_name} FROM {tst_list}",
                 {col_name: tst_func(lst)},
             )
-            eq_test_1row(
-                f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
-                {"a": tst_func(lst), "b": tst_func(lst) * 2},
-            )
+            if not sql_func.startswith(
+                "dict_agg"
+            ):  # dicts do not suport the * operator
+                eq_test_1row(
+                    f"SELECT {sql_func} as a, {sql_func}*2 as b FROM {tst_list}",
+                    {"a": tst_func(lst), "b": tst_func(lst) * 2},
+                )
 
     # this would return a row with 0 in standard SQL, but in SpyQL returns no rows
     eq_test_nrows("SELECT count(*) FROM []", [])
@@ -885,6 +893,74 @@ def test_custom_syntax():
         "WHERE col1.three > 0 "
         "ORDER BY col1.three",
         {"six": 6, "caps": "HELLO WORLD"},
+    )
+
+    eq_test_1row(
+        """
+        SELECT
+            .one,
+            .two.a,
+            json.two.b,
+            ._u_,
+            .1 as dot1,
+            0.2 as dot2,
+            [2,1,2,1,2].count(2) as rsb,
+            (3,3).count(3) as rrb,
+            len({}.keys()) as rcb,
+            (.one + 2) * 2 as lrb,
+            (10,20,30)[.one] as lsb,
+            {.one:'ok', 0:'bad'}[.one] as lcb,
+            sum([  .one, .one,.one]) as three,
+            {'a':.one }['a']+.one*.one/.one**.one-.one/.1 as arith,
+            ._u_.count(200)==.one as und,
+            'a'.upper() as str1,
+            "b".upper() as str2,
+            list(.keys()) as keys
+        FROM json
+        """,
+        {
+            "one": 1,
+            "two_a": 12,
+            "two_b": 13,
+            "_u_": [100, 200, 300],
+            "dot1": 0.1,
+            "dot2": 0.2,
+            "rsb": 3,
+            "rrb": 2,
+            "rcb": 0,
+            "lrb": 6,
+            "lsb": 20,
+            "lcb": "ok",
+            "three": 3,
+            "arith": -8.0,
+            "und": True,
+            "str1": "A",
+            "str2": "B",
+            "keys": ["one", "two", "_u_"],
+        },
+        data='{"one": 1, "two": {"a": 12, "b": 13}, "_u_": [100,200,300] }\n',
+    )
+
+    eq_test_1row(
+        """
+        SELECT
+            len(.),
+            {'all':.},
+            .,
+            list((.,)),
+            [.,.],
+            'one' in .
+        FROM json
+        """,
+        {
+            "len_row": 2,
+            "all_row": {"all": {"one": 1, "two": 2}},
+            "row": {"one": 1, "two": 2},
+            "list_row": [{"one": 1, "two": 2}],
+            "row_row": [{"one": 1, "two": 2}, {"one": 1, "two": 2}],
+            "one_in_row": True,
+        },
+        data='{"one": 1, "two": 2}\n',
     )
 
 

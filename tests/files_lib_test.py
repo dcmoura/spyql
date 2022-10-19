@@ -16,10 +16,10 @@ raw_data = [
 ]
 
 
-def make_json():
-    json_fpath = join_paths(gettempdir(), "spyql_test.jsonl")
+def make_json(data=raw_data, filename="spyql_test.jsonl"):
+    json_fpath = join_paths(gettempdir(), filename)
     with open(json_fpath, "w") as f:
-        for d in raw_data:
+        for d in data:
             f.write(json.dumps(d) + "\n")
     return json_fpath
 
@@ -168,14 +168,72 @@ def test_write_invalid_file():
 
 
 def test_equi_join():
-    query = Query("SELECT row.name, names[row.name] AS ext_name FROM data")
-    out = query(data=raw_data, names=qdict({"A": "Alice", "C": "Chris", "D": "Daniel"}))
-    assert out == (
+    query_str = "SELECT row.name, names[row.name] AS ext_name FROM data"
+    names_kv = qdict({"A": "Alice", "C": "Chris", "D": "Daniel"})
+    expectation = (
         {"name": "A", "ext_name": "Alice"},
         {"name": "B", "ext_name": NULL},
         {"name": "C", "ext_name": "Chris"},
         {"name": "D", "ext_name": "Daniel"},
     )
+
+    # key-value/dict as a variable
+    out = Query(query_str)(data=raw_data, names=names_kv)
+    assert out == expectation
+
+    # key-value/dict as a JSON file
+    kv_fpath = make_json([names_kv], "names.json")
+    out = Query(query_str, json_obj_files={"names": kv_fpath})(data=raw_data)
+    assert out == expectation
+
+    # two dicts from JSON files, auto-cast keys to str, and NULL keys handling
+    nums_kv = {"1": "One", "3": "Three"}
+    kv_fpath2 = make_json([nums_kv], "nums.json")
+    out = Query(
+        "SELECT names['C'] AS a, nums['1'] as b, nums[1] AS bn, nums[NULL] AS c",
+        json_obj_files={"names": kv_fpath, "nums": kv_fpath2},
+    )()
+    assert out == ({"a": "Chris", "b": "One", "bn": "One", "c": NULL},)
+
+    # test INNER JOIN (do not include records where the key is not in the dict)
+    out = Query(
+        "SELECT nums[col1] as n FROM [1,2,3] WHERE col1 in nums",
+        json_obj_files={"nums": kv_fpath2},
+    )()
+    assert out == ({"n": "One"}, {"n": "Three"})
+
+    # test NULL key
+    out = Query(
+        "SELECT NULL in nums AS n",
+        json_obj_files={"nums": kv_fpath2},
+    )()
+    assert out == ({"n": False},)
+    os.remove(kv_fpath)
+    os.remove(kv_fpath2)
+
+    # key-value/dict JSON file does not exist
+    kv_fpath = "this_file_should_not_exist..."
+    try:
+        Query(query_str, json_obj_files={"names": kv_fpath})(data=raw_data)
+        assert False
+    except FileNotFoundError:
+        assert True
+
+    # key-value/dict JSON file content is invalid (it is not a single object)
+    kv_fpath = make_json([{"A": "Alice"}, {"C": "Chris", "D": "Daniel"}], "names2.json")
+    try:
+        Query(query_str, json_obj_files={"names": kv_fpath})(data=raw_data)
+        assert False
+    except ValueError:
+        assert True
+    os.remove(kv_fpath)
+
+    # array of scalars
+    kv_fpath = make_json([[10, 20, 30]], "nums.json")
+    out = Query("SELECT nums[1] AS a", json_obj_files={"nums": kv_fpath})()
+    expectation = ({"a": 20},)
+    assert out == expectation
+    os.remove(kv_fpath)
 
 
 def test_globals():

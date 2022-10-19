@@ -3,7 +3,6 @@
 SQL with Python in the middle
 
 [![https://pypi.python.org/pypi/spyql](https://img.shields.io/pypi/v/spyql.svg)](https://pypi.org/project/spyql/)
-[![https://travis-ci.com/dcmoura/spyql](https://img.shields.io/travis/dcmoura/spyql.svg)](https://pypi.org/project/spyql/)
 [![https://spyql.readthedocs.io/en/latest/?version=latest](https://readthedocs.org/projects/spyql/badge/?version=latest)](https://spyql.readthedocs.io/en/latest/)
 [![codecov](https://codecov.io/gh/dcmoura/spyql/branch/master/graph/badge.svg?token=5C7I7LG814)](https://codecov.io/gh/dcmoura/spyql)
 [![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -425,6 +424,7 @@ FROM csv
 ```
 
 
+
 ## Command line examples
 
 To run the following examples, type `Ctrl-x Ctrl-e` on you terminal. This will open your default editor (emacs/vim). Paste the code of one of the examples, save and exit.
@@ -514,6 +514,55 @@ spyql "
 	TO spy" |
 spyql "SELECT full_name, full_name.upper() FROM spy"
 ```
+
+
+### (Equi) Joins
+
+It is possible to make simple (LEFT) JOIN operations based on dictionary lookups.
+
+Given `numbers.json`:
+```json
+{
+	"1": "One",
+	"2": "Two",
+	"3": "Three"
+}
+```
+
+Query:
+```sh
+spyql -Jnums=numbers.json "
+	SELECT nums[col1] as res
+	FROM [3,4,1,1]
+	TO json"
+```
+
+Output:
+
+```json
+{"res": "Three"}
+{"res": null}
+{"res": "One"}
+{"res": "One"}
+```
+
+If you want a INNER JOIN instead of a LEFT JOIN, you can add a criteria to the where clause, e.g.:
+
+```sql
+SELECT nums[col1] as res
+FROM [3,4,1,1]
+WHERE col1 in nums
+TO json
+```
+
+Output:
+
+```json
+{"res": "Three"}
+{"res": "One"}
+{"res": "One"}
+```
+
 
 ### Queries over APIs
 

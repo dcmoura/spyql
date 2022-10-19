@@ -50,7 +50,7 @@ def throw_error_if_has_agg_func(expr, clause_name):
 
 
 def has_reference2row(expr):
-    return re.search(r"\brow\b", expr) is not None
+    return re.search(r"\brow\b", make_expr_ready(expr)) is not None
 
 
 def clean_query(q):
@@ -127,6 +127,12 @@ def pythonize(s):
         "count_distinct_agg(tuple(_values))", s
     )
 
+    # universal access syntax
+    # `.column` is converted to `row.column`
+    s = re.compile(r"(^|[^\)\]\}\.\w\"\'\`])\.(?=[A-Za-z_])").sub(r"\1row.", s)
+    # `.` is converted to `row`
+    s = re.compile(r"(^|[^\)\]\}\.\w\"\'\`])\.(?!\d)").sub(r"\1row", s)
+
     # easy shortcut for navigating through dics (of dics)
     # e.g.   `json->hello->'planet hearth'` converts into
     #       `json['hello']['planet hearth']`
@@ -191,7 +197,9 @@ def parse_select(sel, strings):
         else:
             # automatic output column name from expression
             # removes json/row 'variables' reference (visual garbage)
-            name = re.compile(r"(\b)(?:json|row)(->|\[|\.)").sub(r"\1", expr)
+            name = re.compile(r"(\b)(?:json|row)(->|\[|\.)").sub(
+                r"\1", make_expr_ready(expr)
+            )
             # makes the string a valid python variable name
             name = spyql.utils.make_str_valid_varname(strings.put_strings_back(name))
 
@@ -200,7 +208,7 @@ def parse_select(sel, strings):
             name = "*"
         else:
             name = strings.put_strings_back(name, quote=False)
-            expr = f"{make_expr_ready(expr, strings)}"
+            expr = f"{make_expr_ready(expr)}"
 
         res.append({"name": name, "expr": expr})
 
@@ -222,7 +230,7 @@ def parse_orderby(clause, strings):
         try:
             expr = int(expr)  # special case: expression is output column number
         except ValueError:
-            expr = make_expr_ready(expr, strings)
+            expr = make_expr_ready(expr)
 
         res.append({"expr": expr, "rev": rev, "rev_nulls": rev_nulls})
 
@@ -240,7 +248,7 @@ def parse_groupby(clause, select, strings):
             # group by depending on select (see spyql.processor._go)
             expr = select[expr - 1]["expr"]
         except ValueError:
-            expr = make_expr_ready(expr, strings)
+            expr = make_expr_ready(expr)
         throw_error_if_has_agg_func(expr, "GROUP BY")
         res.append({"expr": expr})
 
@@ -255,12 +263,12 @@ def parse_fromto(clause, strings, formats_list):
     formats_pattern = re.compile(rf"^(\w+)\s*(\(?.*$)")
     sformats = re.search(formats_pattern, clause)
     if not sformats or sformats.groups()[0].upper() not in formats_list:
-        return make_expr_ready(clause, strings)  # python expression
+        return make_expr_ready(clause)  # python expression
     sformats = sformats.groups()
     res = eval(
         "extract_args"
         + (
-            strings.put_strings_back(make_expr_ready(sformats[1], strings), strings)
+            strings.put_strings_back(make_expr_ready(sformats[1]), strings)
             if sformats[1]
             else "()"
         )
@@ -269,7 +277,7 @@ def parse_fromto(clause, strings, formats_list):
     return res
 
 
-def make_expr_ready(expr, strings):
+def make_expr_ready(expr):
     return pythonize(expr).strip()
 
 
@@ -312,7 +320,7 @@ def parse(query, default_to_clause="MEMORY"):
                     prs[clause], strings, Writer.output_writers().keys()
                 )
             else:
-                prs[clause] = make_expr_ready(prs[clause], strings)
+                prs[clause] = make_expr_ready(prs[clause])
 
     for clause in {"group by"}:
         if prs[clause]:

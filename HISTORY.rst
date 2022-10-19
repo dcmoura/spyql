@@ -2,6 +2,24 @@
 History
 =======
 
+
+0.8.0 (2022-10-18)
+------------------
+* Added universal access to columns/fields via dot operator 
+
+
+0.7.1 (2022-10-10)
+------------------
+* Tweaked JSON loading (via -J) to support any valid JSON file
+
+
+0.7.0 (2022-10-08)
+------------------
+* Added support to key-value lookup (equi joins)
+* Added dict aggregation 
+* Fixed set aggregation when returning empty set
+
+
 0.6.0 (2022-04-06)
 ------------------
 * Added ORJSON processor for faster queries on JSON data
