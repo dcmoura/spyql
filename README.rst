@@ -10,11 +10,6 @@ SQL with Python in the middle
    :alt: https://pypi.python.org/pypi/spyql
 
 
-.. image:: https://img.shields.io/travis/dcmoura/spyql.svg
-   :target: https://pypi.org/project/spyql/
-   :alt: https://travis-ci.com/dcmoura/spyql
-
-
 .. image:: https://readthedocs.org/projects/spyql/badge/?version=latest
    :target: https://spyql.readthedocs.io/en/latest/
    :alt: https://spyql.readthedocs.io/en/latest/?version=latest
@@ -432,6 +427,63 @@ A special file format (spy) is used to efficiently pipe data between queries.
        FROM json
        TO spy" |
    spyql "SELECT full_name, full_name.upper() FROM spy"
+
+
+
+(Equi) Joins
+^^^^^^^^^^^^^
+
+It is possible to make simple (LEFT) JOIN operations based on dictionary lookups.
+
+Given `numbers.json`:
+
+.. code-block:: json
+
+   {
+      "1": "One",
+      "2": "Two",
+      "3": "Three"
+   }
+
+
+Query:
+
+.. code-block:: sh
+
+   spyql -Jnums=numbers.json "
+	   SELECT nums[col1] as res
+	   FROM [3,4,1,1]
+	   TO json"
+
+
+Output:
+
+.. code-block:: json
+
+   {"res": "Three"}
+   {"res": null}
+   {"res": "One"}
+   {"res": "One"}
+
+
+If you want a INNER JOIN instead of a LEFT JOIN, you can add a criteria to the where clause, e.g.:
+
+.. code-block:: sql
+
+   SELECT nums[col1] as res
+   FROM [3,4,1,1]
+   WHERE col1 in nums
+   TO json
+
+
+Output:
+
+.. code-block:: json
+
+   {"res": "Three"}
+   {"res": "One"}
+   {"res": "One"}
+
 
 Queries over APIs
 ^^^^^^^^^^^^^^^^^
