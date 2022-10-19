@@ -110,3 +110,6 @@ PostgreSQL:
 
 Run queries on top of files, streams, or python variables/expressions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Every command-line tool that outputs data in JSON/CSV can be piped into spyql. 
+In addition, you can use python expressions (e.g. list comprehensions) to generate the input data.

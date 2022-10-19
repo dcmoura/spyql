@@ -13,6 +13,7 @@ Welcome to SPyQL's documentation!
    queries
    differences
    reference
+   spyql
    import
    recipes
    contributing
