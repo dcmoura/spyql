@@ -38,8 +38,8 @@ and "help wanted" is open to whoever wants to implement it.
 Write Documentation
 ~~~~~~~~~~~~~~~~~~~
 
-SpyQL could always use more documentation, whether as part of the
-official SpyQL docs, in docstrings, or even on the web in blog posts,
+SPyQL could always use more documentation, whether as part of the
+official SPyQL docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 Submit Feedback
@@ -57,9 +57,9 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up `spyql` for local development.
+Ready to contribute? Here's how to set up spyql for local development.
 
-1. Fork the `spyql` repo on GitHub.
+1. Fork the ``spyql`` repo on GitHub.
 2. Clone your fork locally::
 
     $ git clone git@github.com:your_name_here/spyql.git
@@ -78,8 +78,8 @@ Ready to contribute? Here's how to set up `spyql` for local development.
    Now you can make your changes locally.
 
 5. When you're done making changes, check that your changes pass flake8 and the
-   tests, including testing other Python versions with tox::. Use black to format
-   the code.
+   tests, including testing other Python versions with tox. Use black to format
+   the code::
 
     $ black --experimental-string-processing .
     $ flake8 spyql tests

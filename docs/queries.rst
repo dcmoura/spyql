@@ -1,7 +1,7 @@
 Queries
 =======
 
-A query reads lines from an input datasource (default is ``stdin``) and writes results to a destination (default is ``stdout``).
+A query reads lines from an input datasource (default is ``stdin`` in the CLI) and writes results to a destination (default is ``stdout`` in the CLI).
 The line is the basic I/O unit in SPyQL (1 line = 1 record).
 SPyQL reads a line, processes it, and immediately writes the result to the destination (except for special cases where the result can only be written after processing all input data).
 The ``FROM`` clause specifies the input format (e.g. CSV, JSON) while the ``TO`` clause defines the output format. Input and Output format options can be passed as arguments (e.g. ``FROM csv(delimiter=';', header=False)``).
@@ -9,7 +9,7 @@ The ``FROM`` clause specifies the input format (e.g. CSV, JSON) while the ``TO``
 Query syntax
 ------------
 
-.. code-block:: sql
+.. code-block::
 
    [ IMPORT python_module [ AS identifier ] [, ...] ]
    SELECT [ DISTINCT | PARTIALS ]
@@ -48,31 +48,40 @@ Columns can always be referenced by their column number using the syntax ``colX`
 
     SELECT col1 FROM csv
 
-A list with the all the columns values is also available, ``cols``. Finally, columns can also be accessed using the ``row`` dictionary (this is the least efficient option):
+A list with values for all columns is also available, ``cols``. Finally, columns can be accessed using the ``row`` dictionary or the `.` operator.
 
 .. code-block:: sql
 
-    SELECT row['my_column_name'] FROM csv
+    SELECT .my_column_name       FROM csv
     SELECT row.my_column_name    FROM csv
+    SELECT row['my_column_name'] FROM csv
+
+
+While currently this is the least efficient option, it is the most flexible regarding the data source, since you can use the ``row`` dictionary or the `.` operator to query JSON data.
 
 
 Querying JSON data
 ^^^^^^^^^^^^^^^^^^
 
-SPyQL supports querying `JSON lines <https://jsonlines.org>`_ (1 line = 1 JSON). Internally, SPyQL uses Python's `json module <https://docs.python.org/3/library/json.html>`_ to parse each line from the input. Reading as JSON results in a single column containing a dictionary. This column can be accessed using the aliases ``json``, ``row`` and ``col1``. The following queries are equivalent:
+SPyQL supports querying `JSON lines <https://jsonlines.org>`_ (1 line = 1 JSON). Internally, SPyQL uses Python's `json module <https://docs.python.org/3/library/json.html>`_ to parse each line from the input. Reading as JSON results in a single column containing a dictionary. We recommend using the ``.`` operator or the ``row`` dictionary to access JSON fields. The following queries are equivalent:
 
 .. code-block:: sql
 
-    SELECT json['my_key'] FROM json
-    SELECT json.my_key    FROM json
+    SELECT .my_key        FROM json
     SELECT row.my_key     FROM json
-    SELECT col1.my_key    FROM json
+    SELECT row['my_key']  FROM json
+
+SPyQL also supports `orjson <https://github.com/ijl/orjson>`_, a fast, correct JSON library for Python (you need to `install it <https://github.com/ijl/orjson#install>`_ separately):
+
+.. code-block:: sql
+
+    SELECT .my_key        FROM orjson
 
 
 Querying plain text
 ^^^^^^^^^^^^^^^^^^^
 
-SPyQL allows reading lines as a single string:
+SPyQL allows reading lines as strings:
 
 .. code-block:: sql
 
@@ -87,24 +96,182 @@ SPyQL allows reading data that result from the evaluation of a Python expression
 
 .. code-block:: sql
 
-    SELECT row.name
+    SELECT .name
     FROM [
         {"name": "Alice", "age": 20, "salary": 30.0},
         {"name": "Bob", "age": 30, "salary": 12.0},
         {"name": "Charles", "age": 40, "salary": 6.0},
         {"name": "Daniel", "age": 43, "salary": 0.40},
     ]
-    WHERE row.age > 30
+    WHERE .age > 30
 
 .. code-block:: sql
 
     SELECT col1 from range(10)
 
 
+
+Query output
+------------
+
+The results of executing a query may be written to a file (or stdout), or to an in-memory data structure. When writting to a file, two generic options are available to all formats:
+
+* ``path``: the destination path of the output file (e.g. ``"../myfile.json"``). If ommited the output is written to stdout.
+* ``unbuffered``: if output should be writen immediatly (default: ``False``)
+
+CSV Output
+^^^^^^^^^^^^^
+
+CSV is the default output format of the CLI. SPyQL leverages Python's `csv module <https://docs.python.org/3/library/csv.html>`_ to write CSV data. The formatting parameters available in the CSV module can be passed when specifying the output. Here is an example for setting the column delimiter to a space:
+
+.. code-block:: sql
+
+    SELECT .name, .age
+    FROM json
+    TO csv(delimiter=' ')
+
+
+In addition, the following options are available:
+
+* ``header``: if a header with the column names should be included as first line of the output (default: ``True``)
+
+JSON Output
+^^^^^^^^^^^^^
+
+The JSON output produces `JSON lines <https://jsonlines.org>`_ (one JSON object per line). There are two alternative output  specifications:
+
+* ``TO json``:  uses Python's `json module <https://docs.python.org/3/library/json.html>`_
+* ``TO orjson``:  uses `orjson <https://github.com/ijl/orjson>`_, a fast, correct JSON library for Python (you need to `install it <https://github.com/ijl/orjson#install>`_ separately).
+
+When writting JSONs, the output columns are converted to JSON properties:
+
+.. code-block:: sql
+
+    SELECT col1 AS x, col1**2 AS x2
+    FROM [1,2,3]
+    TO json
+
+Outputs:
+
+.. code-block:: json
+
+    {"x": 1, "x2": 1}
+    {"x": 2, "x2": 4}
+    {"x": 3, "x2": 9}
+
+When the output is a single column (and is a dictionary), you can choose having a JSON with a single field on the top, or you can choose to have the column treated as the JSON output by calling it ``row`` or ``json``.
+
+.. code-block:: sql
+
+    SELECT {'x': col1, 'x2': col1**2} AS a
+    FROM [1,2,3]
+    TO json
+
+Outputs:
+
+.. code-block:: json
+
+    {"a": {"x": 1, "x2": 1}}
+    {"a": {"x": 2, "x2": 4}}
+    {"a": {"x": 3, "x2": 9}}
+
+While:
+
+.. code-block:: sql
+
+    SELECT {'x': col1, 'x2': col1**2} AS json
+    FROM [1,2,3]
+    TO json
+
+Outputs:
+
+.. code-block:: json
+
+    {"x": 1, "x2": 1}
+    {"x": 2, "x2": 4}
+    {"x": 3, "x2": 9}
+
+
+SQL Output
+^^^^^^^^^^^^^
+
+The SQL output produces ``INSERT`` statements that can be pipped into a SQL database like PostgreSQL, MySQL or SQLite, to name a few. Given the following input:
+
+.. code-block:: json
+
+    {"id":23635,"name":"Jerry Green","comment":"Imported from facebook."}
+    {"id":23636,"name":"John Wayne","comment":"Imported from facebook."}
+
+the query:
+
+.. code-block:: SQL
+
+    SELECT .id, .name, .comment
+    FROM json
+    TO sql(table='customer')
+
+would output:
+
+.. code-block:: SQL
+
+    INSERT INTO "customer"("id","name","comment") VALUES (23635,'Jerry Green','Imported from facebook.'),(23636,'John Wayne','Imported from facebook.');
+
+The following options are available:
+
+* ``table``: the name of the output table (where the data will be inserted);
+* ``chunk_size``: maximum number of records per ``INSERT`` statement (default is 1000).
+
+Note that the table must exist in the database. Currently, SPyQL does not support creating the table automatically.
+
+
+SPy Output
+^^^^^^^^^^^^^
+
+The SPy output was created to pipe results from a spyql query into another. It passes rows in SPyQL's internal representation so that the following query does not need to do any kind of inference. It also allows to pass any serializable type like lists or sets.
+
+Pretty Output
+^^^^^^^^^^^^^
+
+Pretty printing is useful for visualizing the results of a query in a more human-friendly way. It loads the full results set into memory, so it is meant to be used for small outputs.
+
+.. code-block:: SQL
+
+    SELECT .id, .name
+    FROM json
+    TO pretty
+
+.. code-block::
+
+       id  name
+    -----  -----------
+    23635  Jerry Green
+    23636  John Wayne
+
+Pretty printing leverages the `tabulate <https://https://github.com/astanin/python-tabulate>`_ module. The available options are:
+
+* ``header``: if the header should be printed (default: ``True``)
+* ``tablefmt``: the format of the output table (see `tabulates' README <https://github.com/astanin/python-tabulate#table-format>`_ for a full list)
+
+
+Plot Output
+^^^^^^^^^^^^^
+
+Simple ASCII plots are made available via the `asciichart <https://github.com/kroitor/asciichart>`_ module. The available options are:
+
+* ``header``: if a legend should be printed (default: ``True``);
+* ``height``: number of lines of the plot in the terminal (default: 20).
+
+
+Memory Output
+^^^^^^^^^^^^^
+
+The memory output is the default when using the spyql python module. It returns results in a `QueryResult <reference.html#spyql.query_result.QueryResult>`_ object.
+
+
 Query processing
 ----------------
 
-A query retrieves rows from a data source, and processes them one row at a time. SpyQL writes outputs as soon as possible. The flow is the following:
+A query retrieves rows from a data source, and processes them one row at a time. SPyQL writes outputs as soon as possible. The flow is the following:
 
 #. IMPORT clause processing: before anything else, any python module required for processing the query is loaded.
 #. FROM clause processing: column names and input processing methods are defined based on the data source type (e.g. CSV, JSON). Then, the data source is processed one row at a time. If an EXPLODE clause is defined (with an array field as argument), the row is replicated for each element in the array.
@@ -117,6 +284,7 @@ A query retrieves rows from a data source, and processes them one row at a time.
 #. OFFSET clause processing: the first N rows are skipped.
 #. LIMIT clause processing: as soon as M rows are written the query finishes executing.
 #. TO clause: defines the format of the output. While some formats immediately write results line by line (e.g. CSV, JSON), some formats might require having all rows before rendering (e.g. pretty printing) or might chunk outputs rows for the sake of performance (e.g. SQL writer).
+
 
 
 Clauses
@@ -143,7 +311,7 @@ FROM clause
 
 The from clause specifies the input and can take 2 main forms:
 
-* an input format (e.g. json, csv) and optional input options (e.g. path to file, delimiter) [TO DO: link to all available input processors : spyql.processor];
+* an input format (e.g. json, csv) and optional input options (e.g. path to file, delimiter);
 * a python expression (e.g. a variable, a list comprehension).
 
 Examples
@@ -177,14 +345,14 @@ Reading from a list of dicts using a python expression:
 
 .. code-block:: sql
 
-    SELECT row.name
+    SELECT .name
     FROM [
         {"name": "Alice", "age": 20, "salary": 30.0},
         {"name": "Bob", "age": 30, "salary": 12.0},
         {"name": "Charles", "age": 40, "salary": 6.0},
         {"name": "Daniel", "age": 43, "salary": 0.40},
     ]
-    WHERE row.age > 30
+    WHERE .age > 30
 
 
 
@@ -195,13 +363,13 @@ EXPLODE takes a path to a field in a dictionary that should be iterable (e.g. a 
 
 .. code-block:: sql
 
-    SELECT row.name, row.departments
+    SELECT .name, .departments
     FROM [
         {"name": "Alice", "departments": [1,4]},
         {"name": "Bob", "departments": [2]},
         {"name": "Charles", "departments": []}
     ]
-    EXPLODE row.departments
+    EXPLODE .departments
     TO json
 
 Results in:
@@ -237,7 +405,7 @@ The SELECT keyword can be followed by one of two optional modifiers that change 
 Examples
 ~~~~~~~~
 
-Select all columns:
+Select all rows:
 
 .. code-block:: sql
 
@@ -317,13 +485,13 @@ Group by the columns with name ``department``:
 
 .. code-block:: sql
 
-    GROUP BY row.department
+    GROUP BY .department
 
 Group rows using a calculation:
 
 .. code-block:: sql
 
-    GROUP BY col1 % 0
+    GROUP BY col1 % 2
 
 
 
@@ -359,7 +527,7 @@ Order by the ``age`` column in desceding order with NULLs at the bottom, and the
 
 .. code-block:: sql
 
-    ORDER BY row.age DESC NULLS LAST, row.name
+    ORDER BY .age DESC NULLS LAST, .name
 
 
 LIMIT clause
@@ -371,8 +539,9 @@ Example, top 5 scores:
 
 .. code-block:: sql
 
-    SELECT name, score
-    ORDER BY score DESC NULLS LAST
+    SELECT .name, .score
+    FROM json
+    ORDER BY .score DESC NULLS LAST
     LIMIT 5
 
 
@@ -385,8 +554,9 @@ Example, top 5 scores, except the highest score:
 
 .. code-block:: sql
 
-    SELECT name, score
-    ORDER BY score DESC NULLS LAST
+    SELECT .name, .score
+    FROM json
+    ORDER BY .score DESC NULLS LAST
     LIMIT 5
     OFFSET 1
 
@@ -416,7 +586,3 @@ Output to CSV ``myfile.csv`` without header:
 .. code-block:: sql
 
     TO csv('myfile.csv', header=False)
-
-
-
-[TO DO: link to all available writers]

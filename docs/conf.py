@@ -90,13 +90,13 @@ html_theme = "bizstyle"
 # theme further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_logo = "spyql_logo.png"
-html_theme_options = {
-    'logo': 'spyql_logo.png',
-    'github_user': 'dcmoura',
-    'github_repo': 'spyql',
-    'github_type': 'star'
-}
+# html_logo = "spyql_logo.png"
+# html_theme_options = {
+#     'logo': 'spyql_logo.png',
+#     'github_user': 'dcmoura',
+#     'github_repo': 'spyql',
+#     'github_type': 'star'
+# }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -161,4 +161,4 @@ texinfo_documents = [
 
 
 # also include __init__ constructor in the docs
-autoclass_content = "both"
+autoclass_content = "class"

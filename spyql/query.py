@@ -51,7 +51,7 @@ class Query:
         :param output_options: options to be passed to the output writer.
             e.g. ``{"delimiter": ";", "header": False}``
         :type output_options: dict, optional
-        :param output_options: JSON objects to load into memory.
+        :param json_obj_files: JSON objects to load into memory.
             e.g. ``{"names": "names.json", "colors": "warm_colors.json"}``
         :type output_options: dict, optional
         :param unbuffered: forces output to be unbuffered.

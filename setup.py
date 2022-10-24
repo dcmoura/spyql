@@ -37,10 +37,11 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Text Processing",
         "Topic :: Utilities",
     ],
-    description="SPyQL: SQL with Python in the midle",
+    description="SPyQL: SQL with Python in the middle",
     entry_points={
         "console_scripts": [
             "spyql=spyql.cli:main",

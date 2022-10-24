@@ -1,4 +1,4 @@
-Notable differences
+Differences to SQL and Python
 -------------------------------------
 
 SPyQL is the result of joining Python and SQL in the same language. We have tried to make SPyQL as faithful as possible to the two but, still, there are differences that should be highlighted.
@@ -13,8 +13,7 @@ In SPyQL:
 * the ``AS`` keyword must precede a column alias definition (it is not optional as in SQL)
 * you can always access the nth input column by using the default column names ``colN`` (e.g. ``col1`` for the first column)
 * currently only a small subset of SQL is supported, namely ``SELECT`` statements without: sub-queries, joins, set operations, etc (check the `Syntax <#syntax>`_ section)
-* sub-queries are achieved by piping (see the `Command line examples <#command line examples>`_
-  section)
+* sub-queries are achieved by piping and joins by dictionary lookups (see the `Command line examples <#command line examples>`_ section)
 * in SQL ``SELECT count(1) WHERE False`` returns 1 row with 1 column with value ``0``, while in SPyQL an equivalent query would not return any row
 * aggregation functions have the suffix ``_agg`` to avoid conflicts with python's built-in functions (e.g. SPyQL uses ``sum_agg`` instead of ``sum`` to avoid conflicts with Python's built-in function):
 
@@ -58,7 +57,7 @@ Differences to Python
 Additional syntax
 ~~~~~~~~~~~~~~~~~
 
-We added additional syntax for making querying easier:
+We added additional syntax for making querying easier (the original python syntax is supported):
 
 .. list-table::
    :header-rows: 1
@@ -66,10 +65,12 @@ We added additional syntax for making querying easier:
    * - Python
      - SpySQL shortcut
      - Purpose
-   * - ``json['hello']['planet earth']``
-     - ``json->hello->'planet earth'``
+   * - ``row['hello']['world']``
+     - ``.hello.world``
      - Easy access of elements in  dicts (e.g. JSONs)
-
+   * - ``row['hello']['planet earth']``
+     - ``.hello['planet earth']``
+     - Easy access of elements in  dicts (e.g. JSONs)
 
 NULL datatype
 ~~~~~~~~~~~~~
@@ -101,4 +102,4 @@ Python's ``None`` generates exceptions when making operations on missing data, b
      - yes
 
 
-The above dictionary key access only returns ``NULL`` if the dict is an instance of ``NullSafeDict``. SPyQL adds ``NullSafeDict``\ , which extends python's native ``dict``. JSONs are automatically loaded as ``NullSafeDict``. Unless you are creating dictionaries on the fly you do not need to worry about this.
+The above dictionary key access only returns ``NULL`` if the dict is an instance of ``qdict``. SPyQL adds ``qdict``\ , which extends python's native ``dict``. JSONs are automatically loaded as ``qdict``. Unless you are creating dictionaries on the fly you do not need to worry about this.

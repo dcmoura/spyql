@@ -1,10 +1,15 @@
+.. image:: imgs/spyql_logo.png
+  :width: 250
+  :alt: SPyQL - SQL with Python in the middle
+
+
 SQL with Python in the middle
 ================================================
 
-Welcome to SPyQL's documentation!
+Welcome to `SPyQL <https://github.com/dcmoura/spyql>`_'s documentation!
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    readme
    distinctive
@@ -13,10 +18,8 @@ Welcome to SPyQL's documentation!
    queries
    differences
    reference
-   spyql
    import
    recipes
    contributing
    authors
    history
-   readmemd
