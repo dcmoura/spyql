@@ -60,6 +60,7 @@ SQL provides the structure of the query, while Python is used to define expressi
 SPyQL is fast and memory efficient. Take a look at the `benchmarks with GB-size JSON data <https://colab.research.google.com/github/dcmoura/spyql/blob/master/notebooks/json_benchmark.ipynb>`_.
 
 
+
 SPyQL CLI
 ^^^^^^^^^
 
@@ -123,6 +124,12 @@ Alin Panaitiu, Creator of Lunar
 Greg Sadetsky, Co-founder and CTO at Decibel Ads
 
 |
+
+Documentation
+--------------
+
+The official documentation of SPyQL can be found at: `<https://spyql.readthedocs.io/en/docs/>`_.
+
 
 Installation
 ------------
