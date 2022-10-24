@@ -561,4 +561,4 @@ Plotting with `matplotcli <https://github.com/dcmoura/matplotcli>`_
 
 ----
 
-*This package was created with `Cookiecutter <https://github.com/audreyr/cookiecutter>`_ and the ``audreyr/cookiecutter-pypackage`` `project template <https://github.com/audreyr/cookiecutter-pypackage>`_.*
+This package was created with `Cookiecutter <https://github.com/audreyr/cookiecutter>`_ and the ``audreyr/cookiecutter-pypackage`` `project template <https://github.com/audreyr/cookiecutter-pypackage>`_.
