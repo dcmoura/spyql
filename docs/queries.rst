@@ -107,7 +107,7 @@ SPyQL allows reading data that result from the evaluation of a Python expression
 
 .. code-block:: sql
 
-    SELECT col1 from range(10)
+    SELECT col1 FROM range(10)
 
 
 
@@ -265,7 +265,7 @@ Simple ASCII plots are made available via the `asciichart <https://github.com/kr
 Memory Output
 ^^^^^^^^^^^^^
 
-The memory output is the default when using the spyql python module. It returns results in a `QueryResult <reference.html#spyql.query_result.QueryResult>`_ object.
+The memory output is the default when using the SPyQL python module. It returns results in a `QueryResult <reference.html#spyql.query_result.QueryResult>`_ object.
 
 
 Query processing
@@ -273,17 +273,17 @@ Query processing
 
 A query retrieves rows from a data source, and processes them one row at a time. SPyQL writes outputs as soon as possible. The flow is the following:
 
-#. IMPORT clause processing: before anything else, any python module required for processing the query is loaded.
-#. FROM clause processing: column names and input processing methods are defined based on the data source type (e.g. CSV, JSON). Then, the data source is processed one row at a time. If an EXPLODE clause is defined (with an array field as argument), the row is replicated for each element in the array.
-#. WHERE clause processing: the where clause condition determines if an input row is eligible for further processing (or if it is skipped).
-#. SELECT clause processing: every python expression defined in the select clause is evaluated for the current row. If the query is a ``SELECT DISTINCT``,  duplicated rows are discarded (only the first occurrence goes through). If the query is a ``SELECT PARTIALS``,  partial results from aggregations are written to the output (instead of the final aggregations).  Results are immediately written, unless one of the following:
+#. IMPORT: before anything else, any python module required for processing the query is loaded.
+#. FROM: column names and input processing methods are defined based on the data source type (e.g. CSV, JSON). Then, the data source is processed one row at a time. If an EXPLODE clause is defined (with an array field as argument), the row is replicated for each element in the array.
+#. WHERE: the where clause condition determines if an input row is eligible for further processing (or if it is skipped).
+#. SELECT: every python expression defined in the select clause is evaluated for the current row. If the query is a ``SELECT DISTINCT``,  duplicated rows are discarded (only the first occurrence goes through). If the query is a ``SELECT PARTIALS``,  partial results from aggregations are written to the output (instead of the final aggregations).  Results are immediately written, unless one of the following:
     * If this is an aggregate query, results are hold until processing all rows (unless the query is a ``SELECT PARTIALS``);
     * If there is an ``ORDER BY`` clause, results are hold until processing all rows.
-#. GROUP BY clause processing: results are aggregated into groups. There will be one output row per observed group that will be written after processing all input rows (unless the query is a ``SELECT PARTIALS``). Aggregates functions define how to summarize several inputs into a single output per group. When no aggregate function is used, the last processed value of the group holds.
-#. ORDER BY clause processing: after processing all rows, rows are sorted and then written one by one.
-#. OFFSET clause processing: the first N rows are skipped.
-#. LIMIT clause processing: as soon as M rows are written the query finishes executing.
-#. TO clause: defines the format of the output. While some formats immediately write results line by line (e.g. CSV, JSON), some formats might require having all rows before rendering (e.g. pretty printing) or might chunk outputs rows for the sake of performance (e.g. SQL writer).
+#. GROUP BY: results are aggregated into groups. There will be one output row per observed group that will be written after processing all input rows (unless the query is a ``SELECT PARTIALS``). Aggregates functions define how to summarize several inputs into a single output per group. When no aggregate function is used, the last processed value of the group holds.
+#. ORDER BY: after processing all rows, rows are sorted and then written one by one.
+#. OFFSET: the first N rows are skipped.
+#. LIMIT: as soon as M rows are written the query finishes executing.
+#. TO: defines the format of the output. While some formats immediately write results line by line (e.g. CSV, JSON), some formats might require having all rows before rendering (e.g. pretty printing) or might chunk outputs rows for the sake of performance (e.g. SQL writer).
 
 
 
@@ -292,7 +292,7 @@ Clauses
 
 IMPORT clause
 ^^^^^^^^^^^^^
-Single import clause in the form:
+Single IMPORT clause in the form:
 
 .. code-block:: sql
 
@@ -309,7 +309,7 @@ The form ``from module import identifier`` is not supported.
 FROM clause
 ^^^^^^^^^^^^
 
-The from clause specifies the input and can take 2 main forms:
+The FROM clause specifies the input and can take 2 main forms:
 
 * an input format (e.g. json, csv) and optional input options (e.g. path to file, delimiter);
 * a python expression (e.g. a variable, a list comprehension).
