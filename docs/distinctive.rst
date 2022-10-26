@@ -17,7 +17,7 @@ In addition, when reordering data (using the ``ORDER BY`` clause), SPyQL uses a 
 Natural window for aggregations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-On many SQL engines, functions to get the first or last value of a group require analytic functions on top of windows defining the sorting criteria (because there are no guarantees about the processing order of input data). Since SPyQL respects the natural ordering of data, all aggregation functions work on top of a natural window where the order is the input row order, and partitions are defined by the ``GROUP BY`` clause. This allows to have aggregate functions that get the first and last values. Here is a comparison against postgresql for getting the first and last value from a column as well as its sum, when there is guarantee of chronological ordering  (column ``ts``\ ) of the input:
+On many SQL engines, functions to get the first or last value of a group require analytic functions on top of windows defining the sorting criteria (because there are no guarantees about the processing order of input data). Since SPyQL respects the natural ordering of data, all aggregation functions work on top of a natural window where the order is the input row order, and partitions are defined by the ``GROUP BY`` clause. This allows to have aggregate functions that get the first and last values. Here is a comparison against PostgreSQL for getting the first and last value from a column as well as its sum, when there is guarantee of chronological ordering  (column ``ts``\ ) of the input:
 
 SPyQL:
 
@@ -49,9 +49,9 @@ PostgreSQL (one possible solution):
 No distinction between aggregate and window functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Window and aggregate functions have a lot in common. The main distinction is that aggregate functions collapse the input rows into one row per group while window functions return one row per input row. Despite similarities, SQL adopts very different syntax, requiring the definition of windows with a ``over`` clause.
+Window and aggregate functions have a lot in common. The main distinction is that aggregate functions collapse the input rows into one row per group while window functions return one row per input row. Despite similarities, SQL adopts very different syntax, requiring the definition of windows with an ``over`` clause.
 
-In SPyQL this has been simplified. The same exact syntax of aggregates is used, with the ``GROUP BY`` clause defining the window partitions, and the order being the natural order of the input (if you need a different order you need to sort data in a former query). To tell that we want one row per input row (window behavior) instead of one row per group, we just need to include the ``PARTIALS`` modifier in the ``SELECT`` clause. Here's and example for getting the total sum of a value vs the running sum.
+In SPyQL this has been simplified. The same exact syntax of aggregates is used, with the ``GROUP BY`` clause defining the window partitions, and the order being the natural order of the input (if you need a different order you need to sort data in a former query). To tell that we want one row per input row (window behavior) instead of one row per group, we just need to include the ``PARTIALS`` modifier in the ``SELECT`` clause. Here's an example for getting the total sum of a value vs the running sum.
 
 Aggregation:
 
@@ -111,5 +111,5 @@ PostgreSQL:
 Run queries on top of files, streams, or python variables/expressions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Every command-line tool that outputs data in JSON/CSV can be piped into spyql. 
+Every command-line tool that outputs data in JSON/CSV can be piped into SPyQL. 
 In addition, you can use python expressions (e.g. list comprehensions) to generate the input data.
