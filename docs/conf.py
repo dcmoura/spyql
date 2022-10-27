@@ -162,3 +162,5 @@ texinfo_documents = [
 
 # also include __init__ constructor in the docs
 autoclass_content = "class"
+
+autodoc_mock_imports = ["asciichartpy", "tabulate"]
