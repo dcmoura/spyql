@@ -77,6 +77,8 @@ SPyQL also supports `orjson <https://github.com/ijl/orjson>`_, a fast, correct J
 
     SELECT .my_key        FROM orjson
 
+Use ``orjson`` if you are working with large JSON files and want to decrease computation time.   
+
 
 Querying plain text
 ^^^^^^^^^^^^^^^^^^^
@@ -116,8 +118,17 @@ Query output
 
 The results of executing a query may be written to a file (or stdout), or to an in-memory data structure. When writting to a file, two generic options are available to all formats:
 
-* ``path``: the destination path of the output file (e.g. ``"../myfile.json"``). If ommited the output is written to stdout.
+* ``path``: the destination path of the output file (e.g. ``"../myfile.json"``). If ommited the output is written to stdout. 
 * ``unbuffered``: if output should be writen immediatly (default: ``False``)
+
+Examples:
+
+.. code-block:: sql
+
+    SELECT 1 AS num TO json                   -- writes to stdout
+    SELECT 1 AS num TO json("hello.json")     -- writes to a file
+    SELECT 1 AS num TO json(unbuffered=True)  -- writes immdediatly to stdout
+
 
 CSV Output
 ^^^^^^^^^^^^^
