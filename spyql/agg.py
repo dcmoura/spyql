@@ -1,11 +1,3 @@
-"""
-.. code-block:: sql
-
-    SELECT *
-    FROM json
-
-"""
-
 import operator
 from spyql.nulltype import Null
 from spyql.qdict import qdict
