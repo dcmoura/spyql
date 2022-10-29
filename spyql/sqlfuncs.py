@@ -11,8 +11,10 @@ NULL_SAFE_FUNCS = {
 }
 
 
-# returns default if val is NULL otherwise returns val
 def coalesce(val, default):
+    """
+    returns ``default`` if ``val is NULL`` otherwise returns ``val``
+    """
     if val is NULL:
         return default
     return val
@@ -21,8 +23,10 @@ def coalesce(val, default):
 ifnull = coalesce  # alias
 
 
-# returns NULL if a equals b otherwise returns a
 def nullif(a, b):
+    """
+    returns ``NULL`` if ``a == b`` otherwise returns ``a``
+    """
     if a == b:
         return NULL
     return a

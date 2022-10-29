@@ -3,6 +3,11 @@ History
 =======
 
 
+0.8.1 (2022-10-29)
+------------------
+* Released new documentation (major revision)
+
+
 0.8.0 (2022-10-18)
 ------------------
 * Added universal access to columns/fields via dot operator 

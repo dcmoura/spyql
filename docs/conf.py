@@ -46,7 +46,7 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 
 # General information about the project.
-project = "SpyQL"
+project = "SPyQL"
 copyright = "2021, Daniel C. Moura"
 author = "Daniel C. Moura"
 
@@ -77,24 +77,31 @@ pygments_style = "sphinx"
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+add_module_names = False
 
 # -- Options for HTML output -------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "alabaster"
+html_theme = "bizstyle"
 
 # Theme options are theme-specific and customize the look and feel of a
 # theme further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+# html_logo = "spyql_logo.png"
+# html_theme_options = {
+#     'logo': 'spyql_logo.png',
+#     'github_user': 'dcmoura',
+#     'github_repo': 'spyql',
+#     'github_type': 'star'
+# }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = ["_static","imgs"]
 
 
 # -- Options for HTMLHelp output ---------------------------------------
@@ -124,7 +131,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass
 # [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "spyql.tex", "SpyQL Documentation", "Daniel C. Moura", "manual"),
+    (master_doc, "spyql.tex", "SPyQL Documentation", "Daniel C. Moura", "manual"),
 ]
 
 
@@ -132,7 +139,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "spyql", "SpyQL Documentation", [author], 1)]
+man_pages = [(master_doc, "spyql", "SPyQL Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------
@@ -144,7 +151,7 @@ texinfo_documents = [
     (
         master_doc,
         "spyql",
-        "SpyQL Documentation",
+        "SPyQL Documentation",
         author,
         "spyql",
         "SQL with Python in the middle.",
@@ -154,4 +161,6 @@ texinfo_documents = [
 
 
 # also include __init__ constructor in the docs
-autoclass_content = "both"
+autoclass_content = "class"
+
+autodoc_mock_imports = ["asciichartpy", "tabulate"]

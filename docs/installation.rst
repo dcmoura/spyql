@@ -8,13 +8,13 @@ Installation
 Stable release
 --------------
 
-To install SpyQL, run this command in your terminal:
+To install SPyQL, run this command in your terminal:
 
 .. code-block:: console
 
     $ pip install spyql
 
-This is the preferred method to install SpyQL, as it will always install the most recent stable release.
+This is the preferred method to install SPyQL, as it will always install the most recent stable release.
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.
@@ -32,7 +32,7 @@ You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/dcmoura/spyql
+    $ git clone https://github.com/dcmoura/spyql.git
 
 Or download the `tarball`_:
 

@@ -4,7 +4,7 @@
 
 from setuptools import setup, find_packages
 
-with open("README.md", encoding="utf-8") as readme_file:
+with open("README.rst", encoding="utf-8") as readme_file:
     readme = readme_file.read()
 
 with open("HISTORY.rst", encoding="utf-8") as history_file:
@@ -37,10 +37,11 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Text Processing",
         "Topic :: Utilities",
     ],
-    description="SpyQL: SQL with Python in the midle",
+    description="SPyQL: SQL with Python in the middle",
     entry_points={
         "console_scripts": [
             "spyql=spyql.cli:main",
@@ -49,7 +50,7 @@ setup(
     install_requires=requirements,
     license="MIT license",
     long_description=readme,
-    long_description_content_type="text/markdown",
+    long_description_content_type="text/x-rst",
     include_package_data=True,
     keywords="sql data csv json",
     name="spyql",

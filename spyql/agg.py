@@ -1,11 +1,3 @@
-"""
-.. code-block:: sql
-
-    SELECT *
-    FROM json
-
-"""
-
 import operator
 from spyql.nulltype import Null
 from spyql.qdict import qdict
@@ -63,7 +55,7 @@ def _agg_op(op, val, default=Null):
 
 
 def sum_agg(val):
-    """Sum across all non-null input values"""
+    """Sum of all non-null input values"""
     return _agg_op(operator.add, val)
 
 

@@ -1,7 +1,34 @@
-# Defines the NULL datatype that mimics SQL's NULL
-# Unlike None, which throws exceptions, operations with NULLs return NULL
-# Allows getting items so that `a.get('b', NULL).get('c', NULL)`` returns NULL
-#  when `b` does not exist, and `NULL[x]` returns NULL
+"""
+A ``NULL`` value means that data is missing, just like in SQL.
+An operation with ``NULL`` returns ``NULL`` without throwing exceptions or
+errors. Here are some examples:
+
+
+.. code-block:: python
+
+    NULL + 1
+    NULL['a']
+    int('Hello')
+    float('')
+
+
+To test if a value is ``NULL`` or not, you should use the ``is`` and ``is not``
+operators.
+
+.. code-block:: python
+
+    SELECT * FROM csv WHERE col1 is not NULL
+
+
+You can use one of the following alternative casing:
+
+.. code-block:: python
+
+    NULL
+    Null
+    null
+
+"""
 
 
 class NullType:
