@@ -111,16 +111,19 @@ Testimonials
 |
 
    "I'm very impressed - this is some very neat pragmatic software design."
+
 Simon Willison, Creator of Datasette, co-creator of Django
 
 |
 
    "I love this tool! I use it every day"...
+§
 Alin Panaitiu, Creator of Lunar
 
 |
 
    "Brilliant tool, thanks a lot for creating it and for the example here!"
+
 Greg Sadetsky, Co-founder and CTO at Decibel Ads
 
 |
