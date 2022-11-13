@@ -6,7 +6,8 @@ import spyql.log
 
 class Query:
     '''
-    A SPyQL query than can be executed on top of a file or variables producing a file or a :class:`~spyql.query_result.QueryResult`.
+    A SPyQL query than can be executed on top of a file or variables producing a file
+    or a :class:`~spyql.query_result.QueryResult`.
     Example::
 
         query = Query("""

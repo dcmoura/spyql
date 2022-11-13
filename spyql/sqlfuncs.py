@@ -1,5 +1,4 @@
 from spyql.nulltype import NULL
-from spyql.qdict import qdict
 import spyql.log
 
 # functions that support NULLs (and that need to be replaced in the query)

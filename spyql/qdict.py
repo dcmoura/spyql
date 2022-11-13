@@ -107,6 +107,6 @@ class str_qdict(qdict):
             return False
         return super().__contains__(str(key))
 
-    ## implement if needed:
+    # implement if needed:
     # def __delitem__(self, key):
     # def __setitem__(self, key, val):
