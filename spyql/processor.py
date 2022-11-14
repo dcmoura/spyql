@@ -463,7 +463,7 @@ class PythonExprProcessor(Processor):
 
     # input is a Python expression or a ref that is passed in the vars.
     def get_input_iterator(self):
-        spyql.log.user_debug(f"Trying to read as python expression")
+        spyql.log.user_debug("Trying to read as python expression")
         e = self.eval_clause("from", self.compile_clause("from"))
         if e:
             if not isiterable(e):
