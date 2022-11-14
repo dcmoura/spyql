@@ -7,6 +7,7 @@ import os
 from itertools import islice, chain
 from io import StringIO
 import copy
+from typing import Tuple, Dict
 
 from spyql.writer import Writer
 from spyql.output_handler import OutputHandler
@@ -332,7 +333,9 @@ class Processor:
             )
 
     # main
-    def go(self, output_options, user_query_vars={}) -> QueryResult:
+    def go(
+        self, output_options, user_query_vars={}
+    ) -> Tuple[QueryResult, Dict[str, int]]:
         output_handler = OutputHandler.make_handler(self.prs)
         self.writer = Writer.make_writer(self.prs["to"], output_options)
         output_handler.set_writer(self.writer)
