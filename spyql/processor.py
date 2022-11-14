@@ -273,9 +273,9 @@ class Processor:
                 # breaks down clause into expressions and tries
                 # compiling one by one to detect in which expression
                 # the error happened
-                for c in range(len(prs_clause)):
+                for idx, c in enumerate(prs_clause):
                     try:
-                        expr = prs_clause[c]["expr"]
+                        expr = c["expr"]
                         translation = self.prepare_expression(expr)
                         for trans in translation:
                             if not trans.strip():
@@ -283,7 +283,7 @@ class Processor:
                             compile(trans, f"<{clause}>", mode)
                     except Exception as expr_exception:
                         spyql.log.user_error(
-                            f"could not compile {clause.upper()} expression #{c+1}",
+                            f"could not compile {clause.upper()} expression #{idx+1}",
                             expr_exception,
                             self.strings.put_strings_back(expr),
                         )
@@ -309,9 +309,9 @@ class Processor:
                 # breaks down clause into expressions and tries
                 # evaluating/executing one by one to detect
                 # in which expression the error happened
-                for c in range(len(prs_clause)):
+                for idx, c in enumerate(prs_clause):
                     try:
-                        expr = prs_clause[c]["expr"]
+                        expr = c["expr"]
                         spyql.log.user_debug("expression", expr)
                         translation = self.prepare_expression(expr)
                         for trans in translation:
@@ -319,7 +319,7 @@ class Processor:
                             cmd(trans, self.vars, self.vars)
                     except Exception as expr_exception:
                         spyql.log.user_error(
-                            f"could not evaluate {clause.upper()} expression #{c+1}",
+                            f"could not evaluate {clause.upper()} expression #{idx+1}",
                             expr_exception,
                             self.strings.put_strings_back(expr),
                             self.vars,
@@ -597,10 +597,10 @@ class CSVProcessor(Processor):
                 max([row[c] if c < len(row) else (-100, None) for row in dtypes_rows])
                 for c in range(len(dtypes_rows[0]))
             ]
-            for c in range(len(dtypes)):
-                cast = dtypes[c][1]
+            for idx, c in enumerate(dtypes):
+                cast = c[1]
                 if cast:
-                    self.casts[c] = cast
+                    self.casts[idx] = cast
 
     def get_input_iterator(self):
         # Part 1 reads sample to detect dialect and if has header
