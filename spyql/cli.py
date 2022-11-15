@@ -1,6 +1,6 @@
+import spyql
 from spyql.query import Query
-import spyql.utils
-import spyql.log
+from spyql import utils, log
 import click
 
 
@@ -11,7 +11,7 @@ def parse_options(ctx, param, options):
             raise click.BadParameter(
                 f"bad format for option '{opt[0]}', format must be 'option=value'"
             )
-    return {kv[0]: spyql.utils.try2eval(kv[1], globals()) for kv in options}
+    return {kv[0]: utils.try2eval(kv[1], globals()) for kv in options}
 
 
 @click.command()
@@ -109,7 +109,7 @@ def main(
         default_to_clause="CSV",
     )()
 
-    spyql.log.user_info(f"Output Meta: {out}")
+    log.user_info(f"Output Meta: {out}")
 
 
 if __name__ == "__main__":
