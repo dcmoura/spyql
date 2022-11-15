@@ -1,6 +1,9 @@
 import re
 import os
 
+from spyql.nulltype import Null
+from collections.abc import Iterable
+
 
 def quote_ifstr(s):
     return f"'{s}'" if isinstance(s, str) else s
@@ -29,9 +32,6 @@ def try2eval(val, globals={}, locals={}):
 
 def isiterable(x):
     """Returns True if `x` is iterable that is not a string or dict and is not null"""
-    from spyql.nulltype import Null
-    from collections.abc import Iterable
-
     return (
         isinstance(x, Iterable)
         and x is not Null
