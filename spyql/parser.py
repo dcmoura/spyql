@@ -1,9 +1,11 @@
 from spyql.quotes_handler import QuotesHandler
-import spyql.utils
-import spyql.log
+from spyql import utils
+from spyql import log
 from spyql.processor import Processor
 from spyql.writer import Writer
 import re
+from spyql import agg
+import inspect
 
 query_struct_keywords = [
     "import",
@@ -20,11 +22,8 @@ query_struct_keywords = [
 
 
 def get_agg_funcs():
-    import spyql.agg
-    import inspect
-
     # TODO replace this by register mechanism to allow for user-defined aggregation
-    funcs = inspect.getmembers(spyql.agg, inspect.isfunction)
+    funcs = inspect.getmembers(agg, inspect.isfunction)
     return {f[0] for f in funcs}
 
 
@@ -42,7 +41,7 @@ def has_agg_func(expr):
 def throw_error_if_has_agg_func(expr, clause_name):
     a = has_agg_func(expr)
     if has_agg_func(expr):
-        spyql.log.user_error(
+        log.user_error(
             f"aggregate functions are not allowed in {clause_name} clause",
             SyntaxError("bad query"),
             ",".join(a),
@@ -102,7 +101,7 @@ def parse_structure(q):
             )
         )
         if misplaced_keys:
-            spyql.log.user_error(
+            log.user_error(
                 "could not parse query",
                 SyntaxError(f"misplaced '{misplaced_keys[0][0].strip()}' clause"),
             )
@@ -201,7 +200,7 @@ def parse_select(sel, strings):
                 r"\1", make_expr_ready(expr)
             )
             # makes the string a valid python variable name
-            name = spyql.utils.make_str_valid_varname(strings.put_strings_back(name))
+            name = utils.make_str_valid_varname(strings.put_strings_back(name))
 
         if expr.strip() == "*":
             expr = "*"
@@ -293,7 +292,7 @@ def parse(query, default_to_clause="MEMORY"):
         prs["to"] = default_to_clause
 
     if not prs["select"]:
-        spyql.log.user_error(
+        log.user_error(
             "could not parse query", SyntaxError("SELECT keyword is missing")
         )
 
@@ -330,12 +329,12 @@ def parse(query, default_to_clause="MEMORY"):
             # e.g. `select count_agg(*) from csv`
             prs[clause] = [{"expr": "'_OVERALL_'"}]
             if prs["order by"]:
-                spyql.log.user_warning(
+                log.user_warning(
                     "ORDER BY is useless since output will have a single result"
                 )
         if prs[clause] and prs["distinct"]:
             # This is feasible to implement but currently not supported
-            spyql.log.user_error(
+            log.user_error(
                 "DISTINCT cannot be used in aggregation queries",
                 SyntaxError("bad query"),
             )
