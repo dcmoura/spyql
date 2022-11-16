@@ -1,10 +1,8 @@
 from spyql.quotes_handler import QuotesHandler
-from spyql import utils
-from spyql import log
+from spyql import agg, log, utils
 from spyql.processor import Processor
 from spyql.writer import Writer
 import re
-from spyql import agg
 import inspect
 
 query_struct_keywords = [
