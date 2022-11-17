@@ -1,4 +1,5 @@
 import cProfile
+import spyql.cli  # noqa: F401
 
 """
 Run `python3 -m spyql.prof <my_query>` for profiling.
