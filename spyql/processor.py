@@ -7,16 +7,14 @@ import os
 from itertools import islice, chain
 from io import StringIO
 import copy
+from typing import Tuple, Dict
 
-from spyql.writer import Writer
+from spyql import agg, log, sqlfuncs
 from spyql.output_handler import OutputHandler
 from spyql.query_result import QueryResult
-import spyql.nulltype
-import spyql.sqlfuncs
 from spyql.qdict import qdict
-import spyql.log
 from spyql.utils import make_str_valid_varname, isiterable, is_row_collapsable
-import spyql.agg
+from spyql.writer import Writer
 
 
 def init_vars(user_query_vars={}):
@@ -43,17 +41,15 @@ def init_vars(user_query_vars={}):
         init_fname = os.path.join(config_home, "spyql", "init.py")
         with open(init_fname) as f:
             exec(f.read(), {}, vars)
-            spyql.log.user_debug(f"Succesfully loaded {init_fname}")
+            log.user_debug(f"Succesfully loaded {init_fname}")
     except FileNotFoundError:
-        spyql.log.user_debug(f"Init file not found: {init_fname}")
+        log.user_debug(f"Init file not found: {init_fname}")
     except Exception as e:
-        spyql.log.user_warning(f"Could not load {init_fname}", e)
+        log.user_warning(f"Could not load {init_fname}", e)
 
     # update the accessible vars with user defined vars, if overlap, warn the user
     for x in set(vars.keys()) & set(user_query_vars.keys()):
-        spyql.log.user_warning(
-            f"Overloading builtin name '{x}', somethings may not work!"
-        )
+        log.user_warning(f"Overloading builtin name '{x}', somethings may not work!")
     vars.update(user_query_vars)
 
     return vars
@@ -90,24 +86,24 @@ class Processor:
                 processor_name = "python"
                 return PythonExprProcessor(prs, strings, **input_options)
         except TypeError as e:
-            spyql.log.user_error(f"Could not create '{processor_name}' processor", e)
+            log.user_error(f"Could not create '{processor_name}' processor", e)
 
     def __init__(self, prs, strings, path=None):
-        spyql.log.user_debug(f"Loading {self.__class__.__name__}")
+        log.user_debug(f"Loading {self.__class__.__name__}")
         self.prs = prs  # parsed query
-        spyql.log.user_debug(self.prs)
+        log.user_debug(self.prs)
         self.strings = strings  # quoted strings
         self.path = path
         try:
             self.input_file = open(path, "r") if path else sys.stdin
         except FileNotFoundError as e:
-            spyql.log.user_error(f"Input file not found: {path}", e)
+            log.user_error(f"Input file not found: {path}", e)
         except Exception as e:
-            spyql.log.user_error(f"Could not load {path}", e)
+            log.user_error(f"Could not load {path}", e)
 
         self.input_col_names = []  # column names of the input data
         self.translations = copy.deepcopy(
-            spyql.sqlfuncs.NULL_SAFE_FUNCS
+            sqlfuncs.NULL_SAFE_FUNCS
         )  # map for alias, functions to be renamed...
         self.has_header = False
         self.casts = dict()
@@ -251,7 +247,7 @@ class Processor:
         if single:  # a clause with a single expression like WHERE
             clause_exprs = self.prepare_expression(prs_clause)
             if len(clause_exprs) > 1:
-                spyql.log.user_error(
+                log.user_error(
                     f"could not compile {clause.upper()} clause",
                     SyntaxError(
                         f"{clause.upper()} clause should not have more than 1"
@@ -273,24 +269,22 @@ class Processor:
                 # breaks down clause into expressions and tries
                 # compiling one by one to detect in which expression
                 # the error happened
-                for c in range(len(prs_clause)):
+                for idx, c in enumerate(prs_clause):
                     try:
-                        expr = prs_clause[c]["expr"]
+                        expr = c["expr"]
                         translation = self.prepare_expression(expr)
                         for trans in translation:
                             if not trans.strip():
                                 raise SyntaxError("empty expression")
                             compile(trans, f"<{clause}>", mode)
                     except Exception as expr_exception:
-                        spyql.log.user_error(
-                            f"could not compile {clause.upper()} expression #{c+1}",
+                        log.user_error(
+                            f"could not compile {clause.upper()} expression #{idx+1}",
                             expr_exception,
                             self.strings.put_strings_back(expr),
                         )
 
-            spyql.log.user_error(
-                f"could not compile {clause.upper()} clause", main_exception
-            )
+            log.user_error(f"could not compile {clause.upper()} clause", main_exception)
 
     def eval_clause(self, clause, clause_exprs, mode="eval"):
         """
@@ -309,37 +303,39 @@ class Processor:
                 # breaks down clause into expressions and tries
                 # evaluating/executing one by one to detect
                 # in which expression the error happened
-                for c in range(len(prs_clause)):
+                for idx, c in enumerate(prs_clause):
                     try:
-                        expr = prs_clause[c]["expr"]
-                        spyql.log.user_debug("expression", expr)
+                        expr = c["expr"]
+                        log.user_debug("expression", expr)
                         translation = self.prepare_expression(expr)
                         for trans in translation:
-                            spyql.log.user_debug("translated expression", trans)
+                            log.user_debug("translated expression", trans)
                             cmd(trans, self.vars, self.vars)
                     except Exception as expr_exception:
-                        spyql.log.user_error(
-                            f"could not evaluate {clause.upper()} expression #{c+1}",
+                        log.user_error(
+                            f"could not evaluate {clause.upper()} expression #{idx+1}",
                             expr_exception,
                             self.strings.put_strings_back(expr),
                             self.vars,
                         )
 
-            spyql.log.user_error(
+            log.user_error(
                 f"could not evaluate {clause.upper()} clause",
                 main_exception,
                 vars=self.vars,
             )
 
     # main
-    def go(self, output_options, user_query_vars={}) -> QueryResult:
+    def go(
+        self, output_options, user_query_vars={}
+    ) -> Tuple[QueryResult, Dict[str, int]]:
         output_handler = OutputHandler.make_handler(self.prs)
         self.writer = Writer.make_writer(self.prs["to"], output_options)
         output_handler.set_writer(self.writer)
         nrows_in = self._go(output_handler, user_query_vars)
         output_handler.finish()
-        spyql.log.user_info("#rows  in", nrows_in)
-        spyql.log.user_info("#rows out", output_handler.rows_written)
+        log.user_info("#rows  in", nrows_in)
+        log.user_info("#rows out", output_handler.rows_written)
 
         stats = {"rows_in": nrows_in, "rows_out": output_handler.rows_written}
         return self.writer.result(), stats
@@ -360,7 +356,7 @@ class Processor:
         input_row_number = 0
 
         self.vars = init_vars(user_query_vars)
-        spyql.agg._init_aggs()
+        agg._init_aggs()
 
         # import user modules
         self.eval_clause(
@@ -405,7 +401,7 @@ class Processor:
             if explode_expr:
                 explode_its = self.eval_clause("explode", explode_expr)
                 if not isiterable(explode_its):
-                    spyql.log.user_error(
+                    log.user_error(
                         "Invalid EXPLODE clause",
                         TypeError(
                             f"{self.prs['explode']} has type {type(explode_its)}, which"
@@ -436,7 +432,7 @@ class Processor:
                         _group_res = self.eval_clause("group by", groupby_expr)
                         # we need to set the group key before running the select because
                         # aggregate functions need to know the group key beforehand
-                        spyql.agg._start_new_agg_row(_group_res)
+                        agg._start_new_agg_row(_group_res)
 
                     # calculate outputs
                     _res = self.eval_clause("select", select_expr)
@@ -463,7 +459,7 @@ class PythonExprProcessor(Processor):
 
     # input is a Python expression or a ref that is passed in the vars.
     def get_input_iterator(self):
-        spyql.log.user_debug(f"Trying to read as python expression")
+        log.user_debug("Trying to read as python expression")
         e = self.eval_clause("from", self.compile_clause("from"))
         if e:
             if not isiterable(e):
@@ -534,7 +530,7 @@ class ORJSONProcessor(Processor):
             import orjson
         except ModuleNotFoundError as e:
             # orjson must be installed separately
-            spyql.log.user_error(
+            log.user_error(
                 "`orjson` module not found. You might need to install it",
                 e,
                 "pip3 install orjson",
@@ -597,10 +593,10 @@ class CSVProcessor(Processor):
                 max([row[c] if c < len(row) else (-100, None) for row in dtypes_rows])
                 for c in range(len(dtypes_rows[0]))
             ]
-            for c in range(len(dtypes)):
-                cast = dtypes[c][1]
+            for idx, c in enumerate(dtypes):
+                cast = c[1]
                 if cast:
-                    self.casts[c] = cast
+                    self.casts[idx] = cast
 
     def get_input_iterator(self):
         # Part 1 reads sample to detect dialect and if has header
@@ -620,12 +616,12 @@ class CSVProcessor(Processor):
             try:
                 self.options = {"dialect": csv.Sniffer().sniff(sample_val)}
             except Exception as e:
-                spyql.log.user_error("Could not detect CSV dialect from input", e)
+                log.user_error("Could not detect CSV dialect from input", e)
             if self.has_header is None:
                 try:
                     self.has_header = csv.Sniffer().has_header(sample_val)
                 except Exception as e:
-                    spyql.log.user_error("Could not detect if input CSV has header", e)
+                    log.user_error("Could not detect if input CSV has header", e)
         elif self.has_header is None:
             self.has_header = True  # default if dialect is not automatically detected
         sample.seek(0)  # rewinds the sample

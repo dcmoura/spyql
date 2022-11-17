@@ -1,8 +1,4 @@
 import logging
-
-logging.basicConfig(level=logging.INFO)
-
-
 from click.testing import CliRunner
 import spyql.cli
 import spyql.log
@@ -18,6 +14,8 @@ import sqlite3
 import math
 from functools import reduce
 import sys
+
+logging.basicConfig(level=logging.INFO)
 
 
 # --------  AUX FUNCTIONS  --------
@@ -598,8 +596,8 @@ def test_processors():
                 {"a": 4, "b": "four"},
             ],
             data=(
-                '{"a": [1, 2, 3], "b": "three"}\n{"a": [], "b": "none"}\n{"a": [4], "b":'
-                ' "four"}\n'
+                '{"a": [1, 2, 3], "b": "three"}\n{"a": [], "b": "none"}\n'
+                '{"a": [4], "b": "four"}\n'
             ),
         )
         eq_test_nrows(f"SELECT * FROM {jsonproc}", [], data="")

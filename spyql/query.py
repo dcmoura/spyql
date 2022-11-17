@@ -1,12 +1,13 @@
 import logging
 from spyql.parser import parse
 from spyql.processor import Processor
-import spyql.log
+from spyql import log
 
 
 class Query:
     '''
-    A SPyQL query than can be executed on top of a file or variables producing a file or a :class:`~spyql.query_result.QueryResult`.
+    A SPyQL query than can be executed on top of a file or variables producing a file
+    or a :class:`~spyql.query_result.QueryResult`.
     Example::
 
         query = Query("""
@@ -69,7 +70,7 @@ class Query:
         """
 
         logging.basicConfig(level=(3 - verbose) * 10, format="%(message)s")
-        spyql.log.error_on_warning = warning_flag == "error"
+        log.error_on_warning = warning_flag == "error"
 
         self.query = query
         self.parsed, self.strings = parse(query, default_to_clause)
@@ -79,8 +80,8 @@ class Query:
         self.unbuffered = unbuffered
         self.__stats = None
 
-        spyql.log.user_debug_dict("Parsed query", self.parsed)
-        spyql.log.user_debug_dict("Strings", self.strings.strings)
+        log.user_debug_dict("Parsed query", self.parsed)
+        log.user_debug_dict("Strings", self.strings.strings)
 
     def __repr__(self) -> str:
         return f'Query("{self.query}")'
@@ -98,9 +99,9 @@ class Query:
                             f.read(), object_pairs_hook=str_qdict
                         )
                     except Exception as e:
-                        spyql.log.user_error(f"Error decoding JSON file", e)
+                        log.user_error(f"Error decoding JSON file", e)
             except FileNotFoundError as e:
-                spyql.log.user_error(f"JSON file not found: {filename}", e)
+                log.user_error(f"JSON file not found: {filename}", e)
         return objs
 
     def __call__(self, **kwargs):

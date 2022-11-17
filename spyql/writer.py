@@ -6,7 +6,7 @@ from math import nan
 import sys
 import io
 
-from spyql.log import user_debug, user_error, user_error
+from spyql.log import user_debug, user_error
 from spyql.nulltype import NULL
 from spyql.qdict import qdict
 from spyql.query_result import QueryResult

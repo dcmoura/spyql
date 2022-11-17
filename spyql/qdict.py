@@ -1,5 +1,5 @@
 from spyql.nulltype import NULL
-import spyql.log
+from spyql import log
 
 
 class qdict(dict):
@@ -79,7 +79,7 @@ class qdict(dict):
 
     # returns NULL when key is not found
     def __missing__(self, key):
-        spyql.log.user_warning4func("key not found", KeyError(key), key)
+        log.user_warning4func("key not found", KeyError(key), key)
         return NULL
 
     def __hash__(self):
@@ -107,6 +107,6 @@ class str_qdict(qdict):
             return False
         return super().__contains__(str(key))
 
-    ## implement if needed:
+    # implement if needed:
     # def __delitem__(self, key):
     # def __setitem__(self, key, val):

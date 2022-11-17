@@ -1,6 +1,5 @@
 from spyql.nulltype import NULL
-from spyql.qdict import qdict
-import spyql.log
+from spyql import log
 
 # functions that support NULLs (and that need to be replaced in the query)
 NULL_SAFE_FUNCS = {
@@ -46,7 +45,7 @@ def float_(a):
     try:
         return float(a)
     except ValueError as e:
-        spyql.log.conversion_warning("float", e, a)
+        log.conversion_warning("float", e, a)
         return NULL
 
 
@@ -56,7 +55,7 @@ def int_(a, *args, **kwargs):
     try:
         return int(a, *args, **kwargs)
     except ValueError as e:
-        spyql.log.conversion_warning("int", e, a, **kwargs)
+        log.conversion_warning("int", e, a, **kwargs)
         return NULL
 
 
@@ -66,7 +65,7 @@ def complex_(*args):
     try:
         return complex(*args)
     except ValueError as e:
-        spyql.log.conversion_warning("complex", e, *args)
+        log.conversion_warning("complex", e, *args)
         return NULL
 
 
