@@ -4,6 +4,7 @@ from spyql.processor import Processor
 from spyql.writer import Writer
 import re
 import inspect
+from typing import Dict, Optional
 
 query_struct_keywords = [
     "import",
@@ -50,62 +51,68 @@ def has_reference2row(expr):
     return re.search(r"\brow\b", make_expr_ready(expr)) is not None
 
 
-def clean_query(q):
-    """makes sure that queries start with a space (required for parse_structure)"""
-    q = " " + q.strip()
-    return q
+class KeywordOrderValidator:
+    """
+    Check if the keyword position is valid
+    """
 
+    def __init__(self, keywords):
+        self.keywords = keywords
+        self.present_keyword_idx = -1
 
-def parse_structure(q):
-    """parse the supported keywords, which must follow a given order"""
-    keys = query_struct_keywords
-    last_pos = 0
-    key_matches = []
-    for key in keys:
-        entry = re.compile(fr"\s+{key}\s+".replace(" ", r"\s+"), re.IGNORECASE).search(
-            q, last_pos
-        )
-        if entry:
-            entry = entry.span()
-            last_pos = entry[1]
-        key_matches.append(entry)
-
-    # # Alternative code where order is not enforced:
-    # key_matches = [re.search(fr"\s+{key}\s+", q, re.IGNORECASE) for key in keys]
-    # key_matches = [(m.span() if m else None)  for m in key_matches]
-
-    d = {}
-    for i in range(len(query_struct_keywords)):
-        if not key_matches[i]:
-            d[keys[i]] = None
-            continue
-        st = key_matches[i][1]
-        nd = len(q)
-        for j in range(i + 1, len(keys)):
-            if key_matches[j]:
-                nd = key_matches[j][0]
-                break
-
-        # this list should be empty, otherwise order of clauses was not respected
-        misplaced_keys = list(
-            filter(
-                None,
-                [
-                    re.compile(
-                        fr"\s+{k}\s+".replace(" ", r"\s+"), re.IGNORECASE
-                    ).search(q[st:nd])
-                    for k in keys
-                ],
-            )
-        )
-        if misplaced_keys:
+    def run(self, keyword: Optional[str]):
+        # eg. invalid if 'from' clause appear after 'where' clause
+        if self.present_keyword_idx >= self.keywords.index(keyword):
             log.user_error(
                 "could not parse query",
-                SyntaxError(f"misplaced '{misplaced_keys[0][0].strip()}' clause"),
+                SyntaxError(f"misplaced '{keyword}' clause"),
             )
-        d[keys[i]] = q[st:nd]
 
-    return d
+        self.present_keyword_idx = self.keywords.index(keyword)
+
+
+def parse_structure(query: str):
+    tokens = re.split(r" |\n", query.strip())
+    tokens = [t for t in tokens if t != ""]
+    query_struct: Dict[Optional[str], Optional[str]] = {
+        kw: None for kw in query_struct_keywords
+    }
+    present_keyword = None
+
+    validator = KeywordOrderValidator(query_struct_keywords)
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i].strip().lower()
+        next_token = tokens[i + 1].strip().lower() if i < len(tokens) - 1 else ""
+
+        # For single keyword
+        if token in query_struct_keywords:
+            present_keyword = token
+            validator.run(present_keyword)
+
+            query_struct[present_keyword] = ""
+            i += 1
+        # For multiple-word keyword
+        elif i < len(tokens) - 1 and token + " " + next_token in query_struct_keywords:
+            present_keyword = token + " " + next_token
+            validator.run(present_keyword)
+            query_struct[present_keyword] = ""
+            i += 2
+        # For not-keyword token
+        else:
+            if present_keyword is None:
+                log.user_error(
+                    "could not parse query",
+                    SyntaxError(f"misplaced '{tokens[i]}' clause"),
+                )
+
+            if query_struct[present_keyword] != "":
+                query_struct[present_keyword] += " "
+            query_struct[present_keyword] += tokens[i]
+            i += 1
+
+    return query_struct
 
 
 def pythonize(s):
@@ -280,7 +287,6 @@ def make_expr_ready(expr):
 
 def parse(query, default_to_clause="MEMORY"):
     """parses the spyql query"""
-    query = clean_query(query)
     strings = QuotesHandler()
     query = strings.extract_strings(query)
     query_has_agg_funcs = has_agg_func(query)
