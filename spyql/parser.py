@@ -4,7 +4,7 @@ from spyql.processor import Processor
 from spyql.writer import Writer
 import re
 import inspect
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 query_struct_keywords = [
     "import",
@@ -72,8 +72,16 @@ class KeywordOrderValidator:
 
 
 def parse_structure(query: str):
-    tokens = re.split(r" |\n", query.strip())
+    tokens: List[str] = []
+    for line in query.split("\n"):
+        if "#" in line:
+            # Remove comment from parse targets
+            line = line.split("#")[0]
+
+        tokens += line.split(" ")
+
     tokens = [t for t in tokens if t != ""]
+
     query_struct: Dict[Optional[str], Optional[str]] = {
         kw: None for kw in query_struct_keywords
     }
@@ -83,7 +91,7 @@ def parse_structure(query: str):
 
     i = 0
     while i < len(tokens):
-        token = tokens[i].strip().lower()
+        token = tokens[i].lower()
         next_token = tokens[i + 1].strip().lower() if i < len(tokens) - 1 else ""
 
         # For single keyword
