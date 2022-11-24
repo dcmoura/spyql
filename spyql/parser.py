@@ -109,17 +109,19 @@ def parse_structure(query: str):
             i += 2
         # For not-keyword token
         else:
+            # For not-keyword token, `token` variable is not always valid
+            # because `token` is the "lower case" of tokens[i]
             if not present_keyword:
                 log.user_error(
                     "could not parse query",
-                    SyntaxError(f"misplaced '{token}' clause"),
+                    SyntaxError(f"misplaced '{tokens[i]}' clause"),
                 )
 
             if query_struct[present_keyword]:
-                query_struct[present_keyword] += f" {token}"
+                query_struct[present_keyword] += f" {tokens[i]}"
             else:
-                query_struct[present_keyword] = token
-            
+                query_struct[present_keyword] += tokens[i]
+
             i += 1
 
     return query_struct
