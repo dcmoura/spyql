@@ -73,7 +73,7 @@ class KeywordOrderValidator:
 
 def parse_structure(query: str):
     tokens: List[str] = []
-    for line in query.split("\n"):
+    for line in query.splitlines():
         if "#" in line:
             # Remove comment from parse targets
             line = line.split("#")[0]
