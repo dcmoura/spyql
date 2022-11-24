@@ -271,6 +271,30 @@ def test_comment():
         """,
         {"col1": "I use C#"},
     )
+    eq_test_1row(
+        """
+        # SELECT 1, 2, 3
+        SELECT 4, 5, 6
+        """,
+        {"_4": 4, "_5": 5, "_6": 6},
+    )
+    eq_test_1row(
+        """
+        ### This is an important note
+        SELECT 1
+        ## And so this is
+        ORDER BY 1
+        """,
+        {"_1": 1},
+    )
+    eq_test_1row(
+        """
+        SELECT
+            1, #2, 3
+            4
+        """,
+        {"_1": 1, "_4": 4},
+    )
 
 
 def test_orderby():
