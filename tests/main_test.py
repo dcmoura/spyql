@@ -274,6 +274,13 @@ def test_comment():
         """,
         [{"col1": 3}, {"col1": 4}, {"col1": 5}],
     )
+    eq_test_1row(
+        """
+        SELECT
+            'I use C#' as col1 # This is a comment
+        """,
+        {"col1": "I use C#"},
+    )
 
 
 def test_orderby():
