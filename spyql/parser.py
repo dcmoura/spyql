@@ -115,9 +115,11 @@ def parse_structure(query: str):
                     SyntaxError(f"misplaced '{token}' clause"),
                 )
 
-            if query_struct[present_keyword] != "":
-                query_struct[present_keyword] += " "
-            query_struct[present_keyword] += tokens[i]
+            if query_struct[present_keyword]:
+                query_struct[present_keyword] += f" {token}"
+            else:
+                query_struct[present_keyword] = token
+            
             i += 1
 
     return query_struct
