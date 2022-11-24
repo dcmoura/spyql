@@ -100,43 +100,33 @@ def make_cli_options(kw_options):
     return options
 
 
-def append_output_option(query, output):
-    # the case when there is a comment at the last of query
-    if "#" in query and "\n" not in query.rsplit("#", 1)[1]:
-        query, comment = query.rsplit("#", 1)
-
-        return query + f" TO {output} #" + comment
-
-    return query + f" TO {output}"
-
-
 def eq_test_nrows(query, expectation, data=None, **kw_options):
     runner = CliRunner()
     spyql.log.user_info("Running query: {}".format(query))
 
     options = make_cli_options(kw_options)
 
-    res = run_cli(append_output_option(query, "json"), options, data, runner)
+    res = run_cli(query + "\nTO json", options, data, runner)
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
-    res = run_cli(append_output_option(query, "orjson"), options, data, runner)
+    res = run_cli(query + "\nTO orjson", options, data, runner)
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
-    res = run_cli(append_output_option(query, "csv"), options, data, runner)
+    res = run_cli(query + "\nTO csv", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2csv(expectation)
     assert res.exit_code == 0
 
-    res = run_cli(append_output_option(query, "spy"), options, data, runner)
+    res = run_cli(query + "\nTO spy", options, data, runner)
     assert spy2py(txt_output(res.output, True)) == list_of_struct2py(expectation)
     assert res.exit_code == 0
 
-    res = run_cli(append_output_option(query, "pretty"), options, data, runner)
+    res = run_cli(query + "\nTO pretty", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2pretty(expectation)
     assert res.exit_code == 0
 
-    res = run_query(append_output_option(query, "memory"), data, **kw_options)
+    res = run_query(query + "\nTO memory", data, **kw_options)
     assert res == tuple(expectation)
 
 
