@@ -112,7 +112,7 @@ def parse_structure(query: str):
             if not present_keyword:
                 log.user_error(
                     "could not parse query",
-                    SyntaxError(f"misplaced '{tokens[i]}' clause"),
+                    SyntaxError(f"misplaced '{token}' clause"),
                 )
 
             if query_struct[present_keyword] != "":
