@@ -76,7 +76,7 @@ def parse_structure(query: str):
     for line in query.splitlines():
         if "#" in line:
             # Remove comment from parse targets
-            line = line.split("#")[0]
+            line = line.split("#", 1)[0]
 
         tokens += line.split()
 
