@@ -92,7 +92,7 @@ def parse_structure(query: str):
     i = 0
     while i < len(tokens):
         token = tokens[i].lower()
-        next_token = tokens[i + 1].strip().lower() if i < len(tokens) - 1 else ""
+        next_token = tokens[i + 1].lower() if i < len(tokens) - 1 else ""
 
         # For single keyword
         if token in query_struct_keywords:
