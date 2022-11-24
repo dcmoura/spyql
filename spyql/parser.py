@@ -109,7 +109,7 @@ def parse_structure(query: str):
             i += 2
         # For not-keyword token
         else:
-            if present_keyword is None:
+            if not present_keyword:
                 log.user_error(
                     "could not parse query",
                     SyntaxError(f"misplaced '{tokens[i]}' clause"),
