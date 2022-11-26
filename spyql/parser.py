@@ -86,42 +86,40 @@ def parse_structure(query: str):
     query_struct: Dict[Optional[str], Optional[str]] = {
         kw: None for kw in query_struct_keywords
     }
+
+    # {"select": ["select"], ..., "group": ["group", "by"], ...}
+    query_struct_keyword_dict: Dict[str, List[str]] = {
+        mk[0]: mk for mk in [k.split() for k in query_struct_keywords]
+    }
     present_keyword = None
 
     validator = KeywordOrderValidator(query_struct_keywords)
 
     i = 0
     while i < len(tokens):
-        token = tokens[i].lower()
-        next_token = tokens[i + 1].lower() if i < len(tokens) - 1 else ""
+        token = tokens[i]
 
-        # For single keyword
-        if token in query_struct_keywords:
-            present_keyword = token
-            validator.run(present_keyword)
-
-            query_struct[present_keyword] = ""
-            i += 1
-        # For multiple-word keyword
-        elif i < len(tokens) - 1 and token + " " + next_token in query_struct_keywords:
-            present_keyword = token + " " + next_token
+        keyword_parts = query_struct_keyword_dict.get(token.lower())
+        if keyword_parts and keyword_parts == [
+            t.lower() for t in tokens[i : i + len(keyword_parts)]
+        ]:
+            present_keyword = " ".join(keyword_parts)
             validator.run(present_keyword)
             query_struct[present_keyword] = ""
-            i += 2
+            i += len(keyword_parts)
+
         # For not-keyword token
         else:
-            # For not-keyword token, `token` variable is not always valid
-            # because `token` is the "lower case" of tokens[i]
             if not present_keyword:
                 log.user_error(
                     "could not parse query",
-                    SyntaxError(f"misplaced '{tokens[i]}' clause"),
+                    SyntaxError(f"misplaced '{token}' clause"),
                 )
 
             if query_struct[present_keyword]:
-                query_struct[present_keyword] += f" {tokens[i]}"
+                query_struct[present_keyword] += f" {token}"
             else:
-                query_struct[present_keyword] += tokens[i]
+                query_struct[present_keyword] += token
 
             i += 1
 
