@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from spyql.parser import parse
 from spyql.processor import Processor
 from spyql import log
@@ -33,9 +34,9 @@ class Query:
     def __init__(
         self,
         query: str,
-        input_options: dict = {},
-        output_options: dict = {},
-        json_obj_files: dict = {},
+        input_options: Optional[dict] = None,
+        output_options: Optional[dict] = None,
+        json_obj_files: Optional[dict] = None,
         unbuffered=False,
         warning_flag="default",
         verbose=0,
@@ -74,9 +75,9 @@ class Query:
 
         self.query = query
         self.parsed, self.strings = parse(query, default_to_clause)
-        self.output_options = output_options
-        self.input_options = input_options
-        self.json_obj_files = json_obj_files
+        self.output_options = output_options if output_options else {}
+        self.input_options = input_options if input_options else {}
+        self.json_obj_files = json_obj_files if json_obj_files else {}
         self.unbuffered = unbuffered
         self.__stats = None
 

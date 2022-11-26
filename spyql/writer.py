@@ -5,6 +5,7 @@ import asciichartpy as chart
 from math import nan
 import sys
 import io
+from typing import Optional
 
 from spyql.log import user_debug, user_error
 from spyql.nulltype import NULL
@@ -28,11 +29,13 @@ class Writer:
         }
 
     @staticmethod
-    def make_writer(to_clause, output_options={}):
+    def make_writer(to_clause: dict, output_options: Optional[dict] = None):
         """
         Factory for making an output writer based on the parsed query
         """
         try:
+            if not output_options:
+                output_options = {}
             writer_name = to_clause
             if not to_clause:  # not TO clause, defaults to CSV
                 writer_name = "CSV"
