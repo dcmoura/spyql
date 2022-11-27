@@ -72,7 +72,7 @@ class KeywordOrderValidator:
 
 
 def parse_structure(query: str):
-    """parse the supported keywords, which must follow a given order""" """"""
+    """parse the supported keywords, which must follow a given order"""
     tokens: List[str] = []
     for line in query.splitlines():
         if "#" in line:
