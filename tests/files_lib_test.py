@@ -167,6 +167,21 @@ def test_write_invalid_file():
         assert True
 
 
+def test_io_parameters_memory():
+    try:
+        csv_fpath = make_csv()
+        Query(
+            f"SELECT name as first_name, age as user_age FROM csv('{csv_fpath}', delimiter=',') TO json(indent=4)"
+        )()
+        # if there is a memory effect, the input/output params will remain and will cause this query to fail:
+        Query("SELECT * FROM range(10) TO csv")()
+        assert True
+    except TypeError:
+        assert False
+    finally:
+        os.remove(csv_fpath)
+
+
 def test_equi_join():
     query_str = "SELECT row.name, names[row.name] AS ext_name FROM data"
     names_kv = qdict({"A": "Alice", "C": "Chris", "D": "Daniel"})
