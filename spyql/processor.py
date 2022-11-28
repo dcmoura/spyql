@@ -68,7 +68,9 @@ class Processor:
         }
 
     @staticmethod
-    def make_processor(prs: dict, strings: QuotesHandler, input_options: Optional[dict] = None):
+    def make_processor(
+        prs: dict, strings: QuotesHandler, input_options: Optional[dict] = None
+    ):
         """
         Factory for making an input processor based on the parsed query
         """
