@@ -91,37 +91,20 @@ def parse_structure(query: str):
     query_struct_keyword_dict: Dict[str, List[str]] = {
         mk[0]: mk for mk in [k.split() for k in query_struct_keywords]
     }
-    present_keyword = None
 
     validator = KeywordOrderValidator(query_struct_keywords)
+    keyword_positions = [
+        (i, query_struct_keyword_dict[token.lower()])
+        for i, token in enumerate(tokens)
+        if token.lower() in query_struct_keyword_dict
+    ]
 
-    i = 0
-    while i < len(tokens):
-        token = tokens[i]
-
-        keyword_parts = query_struct_keyword_dict.get(token.lower())
-        if keyword_parts and keyword_parts == [
-            t.lower() for t in tokens[i : i + len(keyword_parts)]
-        ]:
-            present_keyword = " ".join(keyword_parts)
-            validator.run(present_keyword)
-            query_struct[present_keyword] = ""
-            i += len(keyword_parts)
-
-        # For not-keyword token
-        else:
-            if not present_keyword:
-                log.user_error(
-                    "could not parse query",
-                    SyntaxError(f"misplaced '{token}' clause"),
-                )
-
-            if query_struct[present_keyword]:
-                query_struct[present_keyword] += f" {token}"
-            else:
-                query_struct[present_keyword] += token
-
-            i += 1
+    for i, (pos, kw) in enumerate(keyword_positions):
+        validator.run(" ".join(kw))
+        pos_next = (
+            keyword_positions[i + 1][0] if i < len(keyword_positions) - 1 else None
+        )
+        query_struct[" ".join(kw)] = " ".join(tokens[pos + len(kw) : pos_next])
 
     return query_struct
 
