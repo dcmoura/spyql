@@ -1056,6 +1056,9 @@ def test_errors():
     exception_test(
         "SELECT row.a FROM [{'a':1},{'a':2},{'a':3}] EXPLODE row.a", TypeError
     )
+    exception_test("1,2,3 SELECT 1", SyntaxError)
+    exception_test("SELECT col1 FROM range(3,0,-1) ORDER 1", SyntaxError)
+    exception_test("SELECT col1 FROM range(3,0,-1) ORDER BYZZZ 1", SyntaxError)
 
 
 def test_sql_output():

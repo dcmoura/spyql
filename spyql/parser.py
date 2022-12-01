@@ -93,11 +93,22 @@ def parse_structure(query: str):
     }
 
     validator = KeywordOrderValidator(query_struct_keywords)
-    keyword_positions = [
-        (i, query_struct_keyword_dict[token.lower()])
-        for i, token in enumerate(tokens)
-        if token.lower() in query_struct_keyword_dict
+
+    matchable_tokens: List[Optional[List[str]]] = [
+        query_struct_keyword_dict.get(token.lower()) for token in tokens
     ]
+    keyword_positions = [
+        (i, matchable_token)
+        for i, matchable_token in enumerate(matchable_tokens)
+        if matchable_token
+        and [t.lower() for t in tokens[i : i + len(matchable_token)]] == matchable_token
+    ]
+
+    if keyword_positions[0][0] != 0:
+        log.user_error(
+            "could not parse query",
+            SyntaxError(f"misplaced '{tokens[0]}'"),
+        )
 
     for i, (pos, kw) in enumerate(keyword_positions):
         validator.run(" ".join(kw))
