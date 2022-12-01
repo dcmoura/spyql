@@ -104,7 +104,7 @@ def parse_structure(query: str):
         and [t.lower() for t in tokens[i : i + len(matchable_token)]] == matchable_token
     ]
 
-    if keyword_positions[0][0] != 0:
+    if not keyword_positions or keyword_positions[0][0] > 0:
         log.user_error(
             "could not parse query",
             SyntaxError(f"misplaced '{tokens[0]}'"),
