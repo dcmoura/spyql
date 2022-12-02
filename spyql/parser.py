@@ -19,6 +19,14 @@ query_struct_keywords = [
     "to",
 ]
 
+# helper dict for the parsing
+# maps the first word of a keyword into the list of words that make the keyword
+# e.g. `{"select": ["select"], ..., "group": ["group", "by"], ...}`
+query_struct_keyword_dict: Dict[str, List[str]] = {
+    kw_tokens[0]: kw_tokens
+    for kw_tokens in [kw.split() for kw in query_struct_keywords]
+}
+
 
 def get_agg_funcs():
     # TODO replace this by register mechanism to allow for user-defined aggregation
@@ -85,11 +93,6 @@ def parse_structure(query: str):
 
     query_struct: Dict[Optional[str], Optional[str]] = {
         kw: None for kw in query_struct_keywords
-    }
-
-    # {"select": ["select"], ..., "group": ["group", "by"], ...}
-    query_struct_keyword_dict: Dict[str, List[str]] = {
-        mk[0]: mk for mk in [k.split() for k in query_struct_keywords]
     }
 
     validator = KeywordOrderValidator(query_struct_keywords)
