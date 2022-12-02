@@ -1059,6 +1059,8 @@ def test_errors():
     exception_test("1,2,3 SELECT 1", SyntaxError)
     exception_test("SELECT col1 FROM range(3,0,-1) ORDER 1", SyntaxError)
     exception_test("SELECT col1 FROM range(3,0,-1) ORDER BYZZZ 1", SyntaxError)
+    exception_test("#SELECT 1", SyntaxError)
+    exception_test("", SyntaxError)
 
 
 def test_sql_output():
