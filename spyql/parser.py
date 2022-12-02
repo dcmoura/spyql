@@ -104,6 +104,8 @@ def parse_structure(query: str):
         and [t.lower() for t in tokens[i : i + len(matchable_token)]] == matchable_token
     ]
 
+    # when no keywords are found, returns an empty struct
+    # (will raise a 'SELECT keyword is missing' error)
     if not keyword_positions:
         return query_struct
 
@@ -114,11 +116,12 @@ def parse_structure(query: str):
         )
 
     for i, (pos, kw) in enumerate(keyword_positions):
-        validator.run(" ".join(kw))
+        kw_str = " ".join(kw)
+        validator.run(kw_str)
         pos_next = (
             keyword_positions[i + 1][0] if i < len(keyword_positions) - 1 else None
         )
-        query_struct[" ".join(kw)] = " ".join(tokens[pos + len(kw) : pos_next])
+        query_struct[kw_str] = " ".join(tokens[pos + len(kw) : pos_next])
 
     return query_struct
 
