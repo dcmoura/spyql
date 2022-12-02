@@ -89,15 +89,17 @@ def parse_structure(query: str):
 
         tokens += line.split()
 
+    # dict to be returned with query contents splitted by keyword
     query_struct: Dict[Optional[str], Optional[str]] = {
         kw: None for kw in query_struct_keywords
     }
 
-    validator = KeywordOrderValidator(query_struct_keywords)
-
+    # tokens that are candidates to be keywords (first word of the keyword matches)
     matchable_tokens: List[Optional[List[str]]] = [
         query_struct_keyword_dict.get(token.lower()) for token in tokens
     ]
+
+    # positions of each (validated) keyword
     keyword_positions = [
         (i, matchable_token)
         for i, matchable_token in enumerate(matchable_tokens)
@@ -110,12 +112,17 @@ def parse_structure(query: str):
     if not keyword_positions:
         return query_struct
 
+    # when there are tokens before the first keyword, returns an error
     if keyword_positions[0][0] > 0:
         log.user_error(
             "could not parse query",
             SyntaxError(f"misplaced '{tokens[0]}' at the beginning of the query"),
         )
 
+    # helper to make sure keywords follow the right order
+    validator = KeywordOrderValidator(query_struct_keywords)
+
+    # captures the text between keywords and makes sure keyword order is correct
     for i, (pos, kw) in enumerate(keyword_positions):
         kw_str = " ".join(kw)
         validator.run(kw_str)
