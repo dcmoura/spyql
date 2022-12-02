@@ -19,7 +19,7 @@ query_struct_keywords = [
     "to",
 ]
 
-# helper dict for the parsing
+# helper dict for the parsing.
 # maps the first word of a keyword into the list of words that make the keyword
 # e.g. `{"select": ["select"], ..., "group": ["group", "by"], ...}`
 query_struct_keyword_dict: Dict[str, List[str]] = {
@@ -88,8 +88,6 @@ def parse_structure(query: str):
             line = line.split("#", 1)[0]
 
         tokens += line.split()
-
-    tokens = [t for t in tokens if t != ""]
 
     query_struct: Dict[Optional[str], Optional[str]] = {
         kw: None for kw in query_struct_keywords
