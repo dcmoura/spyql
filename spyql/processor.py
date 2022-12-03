@@ -7,7 +7,7 @@ import os
 from itertools import islice, chain
 from io import StringIO
 import copy
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 
 from spyql import agg, log, sqlfuncs
 from spyql.output_handler import OutputHandler
@@ -15,6 +15,7 @@ from spyql.query_result import QueryResult
 from spyql.qdict import qdict
 from spyql.utils import make_str_valid_varname, isiterable, is_row_collapsable
 from spyql.writer import Writer
+from spyql.quotes_handler import QuotesHandler
 
 
 def init_vars(user_query_vars={}):
@@ -67,11 +68,15 @@ class Processor:
         }
 
     @staticmethod
-    def make_processor(prs, strings, input_options={}):
+    def make_processor(
+        prs: dict, strings: QuotesHandler, input_options: Optional[dict] = None
+    ):
         """
         Factory for making an input processor based on the parsed query
         """
         try:
+            if not input_options:
+                input_options = {}
             from_clause = prs["from"]
             processor_name = ""
             if not from_clause:  # no from close, single select eval
