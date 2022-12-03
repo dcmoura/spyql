@@ -4,6 +4,7 @@ from spyql.processor import Processor
 from spyql.writer import Writer
 import re
 import inspect
+from typing import Dict, List, Optional
 
 query_struct_keywords = [
     "import",
@@ -17,6 +18,14 @@ query_struct_keywords = [
     "offset",
     "to",
 ]
+
+# helper dict for the parsing.
+# maps the first word of a keyword into the list of words that make the keyword
+# e.g. `{"select": ["select"], ..., "group": ["group", "by"], ...}`
+query_struct_keyword_dict: Dict[str, List[str]] = {
+    kw_tokens[0]: kw_tokens
+    for kw_tokens in [kw.split() for kw in query_struct_keywords]
+}
 
 
 def get_agg_funcs():
@@ -50,62 +59,79 @@ def has_reference2row(expr):
     return re.search(r"\brow\b", make_expr_ready(expr)) is not None
 
 
-def clean_query(q):
-    """makes sure that queries start with a space (required for parse_structure)"""
-    q = " " + q.strip()
-    return q
+class KeywordOrderValidator:
+    """
+    Check if the keyword position is valid
+    """
 
+    def __init__(self, keywords):
+        self.keywords = keywords
+        self.present_keyword_idx = -1
 
-def parse_structure(q):
-    """parse the supported keywords, which must follow a given order"""
-    keys = query_struct_keywords
-    last_pos = 0
-    key_matches = []
-    for key in keys:
-        entry = re.compile(fr"\s+{key}\s+".replace(" ", r"\s+"), re.IGNORECASE).search(
-            q, last_pos
-        )
-        if entry:
-            entry = entry.span()
-            last_pos = entry[1]
-        key_matches.append(entry)
-
-    # # Alternative code where order is not enforced:
-    # key_matches = [re.search(fr"\s+{key}\s+", q, re.IGNORECASE) for key in keys]
-    # key_matches = [(m.span() if m else None)  for m in key_matches]
-
-    d = {}
-    for i in range(len(query_struct_keywords)):
-        if not key_matches[i]:
-            d[keys[i]] = None
-            continue
-        st = key_matches[i][1]
-        nd = len(q)
-        for j in range(i + 1, len(keys)):
-            if key_matches[j]:
-                nd = key_matches[j][0]
-                break
-
-        # this list should be empty, otherwise order of clauses was not respected
-        misplaced_keys = list(
-            filter(
-                None,
-                [
-                    re.compile(
-                        fr"\s+{k}\s+".replace(" ", r"\s+"), re.IGNORECASE
-                    ).search(q[st:nd])
-                    for k in keys
-                ],
-            )
-        )
-        if misplaced_keys:
+    def run(self, keyword: Optional[str]):
+        # eg. invalid if 'from' clause appear after 'where' clause
+        if self.present_keyword_idx >= self.keywords.index(keyword):
             log.user_error(
                 "could not parse query",
-                SyntaxError(f"misplaced '{misplaced_keys[0][0].strip()}' clause"),
+                SyntaxError(f"misplaced '{keyword}' clause"),
             )
-        d[keys[i]] = q[st:nd]
 
-    return d
+        self.present_keyword_idx = self.keywords.index(keyword)
+
+
+def parse_structure(query: str):
+    """parse the supported keywords, which must follow a given order"""
+    tokens: List[str] = []
+    for line in query.splitlines():
+        if "#" in line:
+            # Remove comment from parse targets
+            line = line.split("#", 1)[0]
+
+        tokens += line.split()
+
+    # dict to be returned with query contents splitted by keyword
+    query_struct: Dict[Optional[str], Optional[str]] = {
+        kw: None for kw in query_struct_keywords
+    }
+
+    # tokens that are candidates to be keywords (first word of the keyword matches)
+    matchable_tokens: List[Optional[List[str]]] = [
+        query_struct_keyword_dict.get(token.lower()) for token in tokens
+    ]
+
+    # positions of each (validated) keyword
+    keyword_positions = [
+        (i, matchable_token)
+        for i, matchable_token in enumerate(matchable_tokens)
+        if matchable_token
+        and [t.lower() for t in tokens[i : i + len(matchable_token)]] == matchable_token
+    ]
+
+    # when no keywords are found, returns an empty struct
+    # (will raise a 'SELECT keyword is missing' error)
+    if not keyword_positions:
+        return query_struct
+
+    # when there are tokens before the first keyword, returns an error
+    if keyword_positions[0][0] > 0:
+        log.user_error(
+            "could not parse query",
+            SyntaxError(f"misplaced '{tokens[0]}' at the beginning of the query"),
+        )
+
+    # helper to make sure keywords follow the right order
+    validator = KeywordOrderValidator(query_struct_keywords)
+
+    # captures the text between keywords and makes sure keyword order is correct
+    for i, (pos, kw) in enumerate(keyword_positions):
+        kw_str = " ".join(kw)
+        validator.run(kw_str)
+        pos_next = (
+            keyword_positions[i + 1][0] if i < len(keyword_positions) - 1 else None
+        )
+        query_struct[kw_str] = " ".join(tokens[pos + len(kw) : pos_next])
+
+    return query_struct
 
 
 def pythonize(s):
@@ -280,7 +306,6 @@ def make_expr_ready(expr):
 
 def parse(query, default_to_clause="MEMORY"):
     """parses the spyql query"""
-    query = clean_query(query)
     strings = QuotesHandler()
     query = strings.extract_strings(query)
     query_has_agg_funcs = has_agg_func(query)

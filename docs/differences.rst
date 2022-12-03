@@ -1,10 +1,10 @@
 Differences to SQL and Python
--------------------------------------
+------------------------------
 
 SPyQL is the result of joining Python and SQL in the same language. We have tried to make SPyQL as faithful as possible to the two but, still, there are differences that should be highlighted.
 
 Differences to SQL
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 In SPyQL:
 
@@ -14,7 +14,9 @@ In SPyQL:
 * you can always access the nth input column by using the default column names ``colN`` (e.g. ``col1`` for the first column)
 * currently only a small subset of SQL is supported, namely ``SELECT`` statements without: sub-queries, joins, set operations, etc (check the `Syntax <#syntax>`_ section)
 * sub-queries are achieved by piping and joins by dictionary lookups (see the `Command line examples <#command line examples>`_ section)
+* comments follow Python's syntax  (``# line comment``) instead of the SQL standard (``-- line comment``, ``/* multi-line comment */``)
 * in SQL ``SELECT count(1) WHERE False`` returns 1 row with 1 column with value ``0``, while in SPyQL an equivalent query would not return any row
+* counting the number of distinct values is done using ``SELECT count_distinct_agg(x)`` instead of ``SELECT count(DISTINCT x)``
 * aggregation functions have the suffix ``_agg`` to avoid conflicts with python's built-in functions (e.g. SPyQL uses ``sum_agg`` instead of ``sum`` to avoid conflicts with Python's built-in function):
 
 .. list-table::

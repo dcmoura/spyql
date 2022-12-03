@@ -106,27 +106,27 @@ def eq_test_nrows(query, expectation, data=None, **kw_options):
 
     options = make_cli_options(kw_options)
 
-    res = run_cli(query + " TO json", options, data, runner)
+    res = run_cli(query + "\nTO json", options, data, runner)
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
-    res = run_cli(query + " TO orjson", options, data, runner)
+    res = run_cli(query + "\nTO orjson", options, data, runner)
     assert json_output(res.output) == expectation
     assert res.exit_code == 0
 
-    res = run_cli(query + " TO csv", options, data, runner)
+    res = run_cli(query + "\nTO csv", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2csv(expectation)
     assert res.exit_code == 0
 
-    res = run_cli(query + " TO spy", options, data, runner)
+    res = run_cli(query + "\nTO spy", options, data, runner)
     assert spy2py(txt_output(res.output, True)) == list_of_struct2py(expectation)
     assert res.exit_code == 0
 
-    res = run_cli(query + " TO pretty", options, data, runner)
+    res = run_cli(query + "\nTO pretty", options, data, runner)
     assert txt_output(res.output, True) == list_of_struct2pretty(expectation)
     assert res.exit_code == 0
 
-    res = run_query(query + " TO memory", data, **kw_options)
+    res = run_query(query + "\nTO memory", data, **kw_options)
     assert res == tuple(expectation)
 
 
@@ -236,6 +236,64 @@ def test_basic():
     eq_test_1row(
         "IMPORT numpy AS np, sys SELECT (np.array([1,2,3])+1).tolist() AS a",
         {"a": [2, 3, 4]},
+    )
+
+
+def test_comment():
+    eq_test_1row("SELECT * FROM [1] # This is a in-line-comment", {"col1": 1})
+    eq_test_nrows(
+        """
+        SELECT
+            *
+        FROM
+            [1,2,3,4,5]  # This is a in-line-comment
+        OFFSET
+            2
+        """,
+        [{"col1": 3}, {"col1": 4}, {"col1": 5}],
+    )
+    eq_test_nrows(
+        """
+        # This is a comment line
+        SELECT
+            *
+        FROM
+            [1,2,3,4,5]
+        OFFSET
+            2
+        """,
+        [{"col1": 3}, {"col1": 4}, {"col1": 5}],
+    )
+    eq_test_1row(
+        """
+        SELECT
+            'I use C#' as col1 # This is a comment
+        """,
+        {"col1": "I use C#"},
+    )
+    eq_test_1row(
+        """
+        # SELECT 1, 2, 3
+        SELECT 4, 5, 6
+        """,
+        {"_4": 4, "_5": 5, "_6": 6},
+    )
+    eq_test_1row(
+        """
+        ### This is an important note
+        SELECT 1
+        ## And so this is
+        ORDER BY 1
+        """,
+        {"_1": 1},
+    )
+    eq_test_1row(
+        """
+        SELECT
+            1, #2, 3
+            4
+        """,
+        {"_1": 1, "_4": 4},
     )
 
 
@@ -998,6 +1056,11 @@ def test_errors():
     exception_test(
         "SELECT row.a FROM [{'a':1},{'a':2},{'a':3}] EXPLODE row.a", TypeError
     )
+    exception_test("1,2,3 SELECT 1", SyntaxError)
+    exception_test("SELECT col1 FROM range(3,0,-1) ORDER 1", SyntaxError)
+    exception_test("SELECT col1 FROM range(3,0,-1) ORDER BYZZZ 1", SyntaxError)
+    exception_test("#SELECT 1", SyntaxError)
+    exception_test("", SyntaxError)
 
 
 def test_sql_output():
