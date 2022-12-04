@@ -3,6 +3,14 @@ History
 =======
 
 
+0.9.0 (2022-12-04)
+------------------
+* Added support for line comments
+* Improved and optimized parsing 
+* General code improvements
+* Fixed bug of unwanted persistence of parameters from previous queries (only happend on the lib)  
+
+
 0.8.1 (2022-10-29)
 ------------------
 * Released new documentation (major revision)
